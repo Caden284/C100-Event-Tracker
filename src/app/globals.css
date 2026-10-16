@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+/*
+ * C100 Membership Hub design tokens.
+ * Restrained navy/blue + neutral palette with the chapter's gold as a sparing accent.
+ */
+@theme {
+  --color-ink: #0e1b33;
+  --color-ink-2: #16264a;
+  --color-brand: #1f4fa3;
+  --color-brand-600: #1a4590;
+  --color-brand-700: #163a78;
+  --color-brand-50: #eef3fb;
+  --color-brand-100: #dbe5f6;
+  --color-gold: #c8a24a;
+  --color-gold-700: #8c6b1f;
+  --color-canvas: #f5f6f8;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  background: var(--color-canvas);
+  color: #0f172a;
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Visible keyboard focus everywhere. */
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+dialog::backdrop {
+  background: rgb(14 27 51 / 0.45);
+}
+
+@media print {
+  @page {
+    size: letter;
+    margin: 12mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-full {
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+}
