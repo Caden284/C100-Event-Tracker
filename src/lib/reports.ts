@@ -3,6 +3,7 @@ import ExcelJS from "exceljs";
 import type { Permission, SessionContext } from "@/lib/auth";
 import type { Semester } from "@/lib/data/semesters";
 import { fetchAll } from "@/lib/data/fetch-all";
+import { loadAbsenceReasons, loadAbsences } from "@/lib/data/absences";
 import { loadStanding } from "@/lib/data/roster";
 import { loadProspects } from "@/lib/data/prospects";
 import { candidatesFor } from "@/lib/data/recognition";
@@ -99,6 +100,18 @@ export const REPORTS: ReportDef[] = [
     columns: [c("date", "Event date"), c("event", "Event"), c("category", "Category"), c("first_name", "First name"), c("last_name", "Last name"), c("type", "Person type"), c("status", "Status"), c("source", "Source")],
     load: async (s, sem) => (await fetchAll((f, t) => s.supabase.from("v_attendance_detail").select("event_date, event_name, category_key, first_name, last_name, member_id, prospect_id, status_key, source").eq("semester_id", sem.id).order("event_date").order("id").range(f, t)))
       .map((r) => ({ date: r.event_date, event: r.event_name, category: r.category_key, first_name: r.first_name, last_name: r.last_name, type: r.member_id ? "member" : r.prospect_id ? "prospect" : "", status: r.status_key, source: r.source })),
+  },
+  {
+    key: "absences", title: "Excused & unexcused absences", group: "Attendance", description: "Absences recorded by officers. Reasons are included only for officers allowed to see them.", anyOf: ["attendance.read"],
+    columns: [c("date", "Event date"), c("event", "Event"), c("member", "Member"), c("absence", "Absence"), c("reason", "Reason", { default: false, sensitive: true }), c("note", "Note", { default: false, sensitive: true })],
+    load: async (s, sem) => {
+      const [{ rows }, reasons] = await Promise.all([loadAbsences(s, sem.id), loadAbsenceReasons(s, true)]);
+      const name = new Map(reasons.map((r) => [r.key, r.name]));
+      return [...rows].reverse().map((r) => ({
+        date: r.event_date, event: r.event_name, member: r.name, absence: r.excused ? "Excused" : "Unexcused",
+        reason: r.reason_key ? name.get(r.reason_key) ?? r.reason_key : "", note: r.note ?? "",
+      }));
+    },
   },
   {
     key: "prospects", title: "Prospective-member engagement", group: "Recruitment", description: "Events attended, interest indicator, follow-up and conversion.", anyOf: ["prospects.read"],

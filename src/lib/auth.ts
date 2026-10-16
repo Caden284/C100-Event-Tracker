@@ -7,7 +7,7 @@ export type Permission =
   | "members.read" | "members.write" | "members.notes" | "dues.read" | "dues.write"
   | "prospects.read" | "prospects.write" | "prospects.convert"
   | "events.read" | "events.write"
-  | "attendance.read" | "attendance.import" | "attendance.write" | "unmatched.resolve"
+  | "attendance.read" | "attendance.import" | "attendance.write" | "attendance.excuse" | "unmatched.resolve"
   | "standing.read" | "discipline.read" | "discipline.propose" | "discipline.approve"
   | "policies.read" | "policies.write" | "policies.approve"
   | "recognition.read" | "recognition.manage" | "recognition.nominate" | "recognition.vote" | "recognition.approve"

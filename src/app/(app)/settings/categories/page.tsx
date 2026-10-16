@@ -4,16 +4,17 @@ import { PageHeader, Callout } from "@/components/ui/misc";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Checkbox, Input } from "@/components/ui/form";
 import { ActionForm, SubmitButton } from "@/components/action-form";
-import { saveCategoryConfig, saveStatusConfig } from "../actions";
+import { saveAbsenceReason, saveCategoryConfig, saveStatusConfig } from "../actions";
 
 export const metadata = { title: "Categories & statuses" };
 
 export default async function CategoriesPage() {
   const s = await requirePermission("settings.manage");
-  const [{ data: cats }, { data: ms }, { data: as }] = await Promise.all([
+  const [{ data: cats }, { data: ms }, { data: as }, { data: reasons }] = await Promise.all([
     s.supabase.from("event_categories").select("*").order("sort_order"),
     s.supabase.from("member_statuses").select("*").order("sort_order"),
     s.supabase.from("attendance_statuses").select("*").order("sort_order"),
+    s.supabase.from("absence_reasons").select("*").order("sort_order"),
   ]);
   return (
     <>
@@ -58,15 +59,30 @@ export default async function CategoriesPage() {
             </CardBody>
           </Card>
           <Card>
-            <CardHeader title="Attendance statuses" description="Only statuses marked as counting are treated as attendance. “Excused” is off until the chapter adopts it." />
+            <CardHeader title="Attendance statuses" description="Only statuses marked as counting are treated as attendance. “Excused absence” is recorded by an officer with a reason, never from a PIN export." />
             <CardBody className="space-y-2">
               {(as ?? []).map((x) => (
                 <ActionForm key={x.key} action={saveStatusConfig} className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 p-2">
                   <input type="hidden" name="table" value="attendance_statuses" /><input type="hidden" name="key" value={x.key} />
                   <span className="w-44 text-sm font-medium">{x.name}{x.counts_as_attended ? " · counts" : ""}</span>
-                  <Input name="pin_aliases" defaultValue={x.pin_aliases.join(", ")} className="h-8 flex-1 text-xs" aria-label="PIN values" title="Values in PIN exports that mean this status" />
+                  {x.key === "excused" ? <span className="flex-1 text-xs text-slate-500">Recorded with “Record an absence”</span> : <Input name="pin_aliases" defaultValue={x.pin_aliases.join(", ")} className="h-8 flex-1 text-xs" aria-label="PIN values" title="Values in PIN exports that mean this status" />}
                   <Checkbox name="is_active" defaultChecked={x.is_active} label="In use" className="text-xs" />
                   <SubmitButton size="sm" variant="ghost">Save</SubmitButton>
+                </ActionForm>
+              ))}
+            </CardBody>
+          </Card>
+          <Card>
+            <CardHeader title="Absence reasons" description="Choices officers pick when excusing an absence. “Note required” makes them add a short explanation." />
+            <CardBody className="space-y-2">
+              {[...(reasons ?? []), null].map((x, i) => (
+                <ActionForm key={x?.key ?? `r${i}`} action={saveAbsenceReason} className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 p-2">
+                  {x ? <><input type="hidden" name="existing" value="1" /><input type="hidden" name="key" value={x.key} /></> : null}
+                  <Input name="name" defaultValue={x?.name ?? ""} placeholder="New reason" className="h-8 w-52 text-xs" aria-label="Reason" required />
+                  <Input name="description" defaultValue={x?.description ?? ""} className="h-8 flex-1 text-xs" aria-label="Description" />
+                  <Checkbox name="requires_note" defaultChecked={x?.requires_note ?? false} label="Note required" className="text-xs" />
+                  <Checkbox name="is_active" defaultChecked={x?.is_active ?? true} label="In use" className="text-xs" />
+                  <SubmitButton size="sm" variant="ghost">{x ? "Save" : "Add"}</SubmitButton>
                 </ActionForm>
               ))}
             </CardBody>

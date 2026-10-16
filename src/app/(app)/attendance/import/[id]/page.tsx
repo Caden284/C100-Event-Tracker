@@ -131,7 +131,7 @@ export default async function ImportReview({ params, searchParams }: PageProps<"
                   <div>
                     <label htmlFor="default_status_key" className="block text-xs font-medium text-slate-700">If there is no status column, every row is…</label>
                     <Select id="default_status_key" name="default_status_key" defaultValue={imp.default_status_key ?? "attended"} className="mt-1 h-8 w-48 text-xs">
-                      {(statuses ?? []).filter((x) => x.is_active).map((x) => <option key={x.key} value={x.key}>{x.name}</option>)}
+                      {(statuses ?? []).filter((x) => x.is_active && x.key !== "excused").map((x) => <option key={x.key} value={x.key}>{x.name}</option>)}
                     </Select>
                   </div>
                   {mapping.event_date == null ? (

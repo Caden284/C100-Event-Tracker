@@ -7,7 +7,8 @@ This web app replaces the `C100_Membership_Tracker.xlsx` workbook. Executive-boa
 - import Panther Involvement Network (PIN) attendance exports safely (no double counting, ever)
 - see live dashboards, member progress and prospective-member engagement
 - reschedule events by dragging them on a shared chapter calendar
-- manage the membership policy, strikes and probation (**draft until the board approves it**)
+- record excused absences (illness, work, class, a mental health day…) and unexcused ones
+- manage the membership policy, suggested strikes and probation (**draft until the board approves it**)
 - run award nominations and votes, and keep participation points
 - export reports and keep full backups
 
@@ -153,7 +154,7 @@ Open <http://localhost:3000> and sign in.
 The migration:
 - **is safe to repeat**: running it again adds nothing that already exists and never overwrites newer data;
 - **can be rolled back** (by a super administrator) from the history table on the same page, unless newer data depends on it;
-- imports the workbook's requirements (2 meetings / 3 general / 3 service / 3 mentoring, dues deadline Oct 8) as a **DRAFT policy**, with the strike thresholds **inactive**.
+- imports the workbook's requirements (2 meetings / 3 general / 3 service / 3 mentoring, dues deadline Oct 8) as a **DRAFT policy**, with the strike thresholds **inactive**. The draft also includes the hub's proposed strike rules (see [LIMITATIONS.md](docs/LIMITATIONS.md#decisions-the-board-must-make-before-official-use)).
 
 **Optional:** add the weekly "Study with C100" blocks from the Fall 2026 calendar via **Events → Import calendar** with `public/templates/fall-2026-study-blocks.csv`. They show on the calendar as Study events, which count toward nothing.
 
@@ -193,7 +194,7 @@ Choose **one-time password** (works without email setup, and you share it privat
 ## 11. Test the application
 
 ```bash
-npm test            # 55 unit tests: parsing, matching, standing, recognition, exports (no database needed)
+npm test            # 68 unit tests: parsing, matching, standing, strikes, recognition, exports (no database needed)
 npm run lint        # ESLint
 npm run typecheck   # TypeScript
 npm run build       # production build

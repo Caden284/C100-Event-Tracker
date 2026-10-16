@@ -55,7 +55,7 @@ export default async function PolicyPage({ params }: PageProps<"/settings/polici
             <CardBody className="grid gap-3 sm:grid-cols-2">
               <Checkbox name="dues_required" defaultChecked={r.dues_required_for_good_standing} label="Dues must be paid (or waived) for Good Standing" />
               <Field label="Standout multiplier" htmlFor="sm" hint="Total counted ≥ multiplier × combined requirement. Blank disables."><Input id="sm" name="standout_multiplier" type="number" step="0.1" min={1} defaultValue={r.standout_multiplier ?? ""} /></Field>
-              <Checkbox name="excused_counts" defaultChecked={r.excused_counts_as_attended} label="Excused absences count as attended" />
+              <Checkbox name="excused_counts" defaultChecked={r.excused_counts_as_attended} label="Excused absences count as attended" hint="Off by default: an excused absence only protects from a strike." />
               <Checkbox name="waivers_allowed" defaultChecked={r.waivers_allowed} label="Requirement waivers / exceptions are permitted" />
               <Checkbox name="credit_pre_membership" defaultChecked={r.credit_pre_membership_attendance} label="Count attendance from before a member's start date (e.g. recruitment)" />
               <Checkbox name="at_risk_enabled" defaultChecked={r.at_risk_enabled} label="Show behind-pace warnings" />
@@ -73,6 +73,36 @@ export default async function PolicyPage({ params }: PageProps<"/settings/polici
                   <Select name={`strike_action_${i}`} defaultValue={t?.action ?? "formal_warning"} aria-label="Action"><option value="formal_warning">Formal warning</option><option value="probation">Probation</option><option value="removal">Removal</option><option value="other">Other</option></Select>
                 </div>
               ))}
+              <div className="rounded-md border border-slate-200 p-3">
+                <p className="text-sm font-medium">What earns a strike</p>
+                <p className="text-xs text-slate-500">Each rule produces a suggested strike that an officer confirms or dismisses on Probation &amp; Standing. Nothing is recorded automatically.</p>
+                <div className="mt-3 space-y-3">
+                  <div className="grid items-end gap-2 sm:grid-cols-[2fr_3fr_6rem]">
+                    <Checkbox name="t_absence" defaultChecked={r.strikes.triggers.unexcused_absence.enabled} label="Unexcused absence from these events" />
+                    <fieldset><legend className="sr-only">Categories</legend><div className="flex flex-wrap gap-2">{(cats ?? []).filter((c) => c.key !== "recruitment").map((c) => <label key={c.key} className="flex items-center gap-1 text-xs"><input type="checkbox" name="t_absence_cats" value={c.key} defaultChecked={r.strikes.triggers.unexcused_absence.categories.includes(c.key)} />{c.name}</label>)}</div></fieldset>
+                    <Field label="Strikes" htmlFor="tap"><Input id="tap" name="t_absence_points" type="number" min={1} max={3} defaultValue={r.strikes.triggers.unexcused_absence.points} /></Field>
+                  </div>
+                  <div className="grid items-end gap-2 sm:grid-cols-[2fr_1.5fr_1.5fr_6rem]">
+                    <Checkbox name="t_midterm" defaultChecked={r.strikes.triggers.midterm_checkpoint.enabled} label="Behind at the midterm checkpoint" />
+                    <Field label="Checkpoint date" htmlFor="tmd" hint="Blank = middle of the semester"><Input id="tmd" name="t_midterm_date" type="date" defaultValue={r.strikes.triggers.midterm_checkpoint.date ?? ""} /></Field>
+                    <Field label="Expected % of requirements" htmlFor="tmp"><Input id="tmp" name="t_midterm_percent" type="number" min={1} max={100} defaultValue={r.strikes.triggers.midterm_checkpoint.min_percent} /></Field>
+                    <Field label="Strikes" htmlFor="tmpt"><Input id="tmpt" name="t_midterm_points" type="number" min={1} max={3} defaultValue={r.strikes.triggers.midterm_checkpoint.points} /></Field>
+                  </div>
+                  <div className="grid items-end gap-2 sm:grid-cols-[5fr_6rem]">
+                    <Checkbox name="t_final" defaultChecked={r.strikes.triggers.end_of_semester.enabled} label="Requirements not met at the end of the semester" />
+                    <Field label="Strikes" htmlFor="tfp"><Input id="tfp" name="t_final_points" type="number" min={1} max={3} defaultValue={r.strikes.triggers.end_of_semester.points} /></Field>
+                  </div>
+                  <div className="grid items-end gap-2 sm:grid-cols-[5fr_6rem]">
+                    <Checkbox name="t_dues" defaultChecked={r.strikes.triggers.dues_deadline.enabled} label="Dues unpaid after the semester's dues deadline" />
+                    <Field label="Strikes" htmlFor="tdp"><Input id="tdp" name="t_dues_points" type="number" min={1} max={3} defaultValue={r.strikes.triggers.dues_deadline.points} /></Field>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <Field label="Excused absences per semester" htmlFor="mx" hint="Excuses past this limit no longer protect from strikes. Blank = no limit."><Input id="mx" name="max_excused" type="number" min={0} max={50} defaultValue={r.strikes.max_excused_per_semester ?? ""} /></Field>
+                    <Checkbox name="reset_each_semester" defaultChecked={r.strikes.reset_each_semester} label="Strikes reset each semester" />
+                    <Checkbox name="makeup_clears_strike" defaultChecked={r.strikes.makeup_clears_strike} label="A make-up service event can remove one strike" />
+                  </div>
+                </div>
+              </div>
               <Field label="Probation criteria" htmlFor="pc"><Textarea id="pc" name="probation_criteria" defaultValue={r.probation_criteria} /></Field>
               <Field label="Review process" htmlFor="rp"><Textarea id="rp" name="review_process" defaultValue={r.review_process} /></Field>
               <Field label="Appeal process" htmlFor="ap"><Textarea id="ap" name="appeal_process" defaultValue={r.appeal_process} /></Field>

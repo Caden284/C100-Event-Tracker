@@ -23,7 +23,59 @@ export type Database = {
           }
         },"public": {
           Tables: {
-            "app_settings": {
+            "absence_excuses": {
+                  Row: {
+                    "attendance_record_id": string,"note": string | null,"reason_key": string,"recorded_at": string,"recorded_by": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "attendance_record_id": string,"note"?: string | null,"reason_key": string,"recorded_at"?: string,"recorded_by"?: string | null
+                  }
+                  Update: {
+                    "attendance_record_id"?: string,"note"?: string | null,"reason_key"?: string,"recorded_at"?: string,"recorded_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "absence_excuses_attendance_record_id_fkey"
+      columns: ["attendance_record_id"]
+isOneToOne: true
+      referencedRelation: "attendance_records"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "absence_excuses_attendance_record_id_fkey"
+      columns: ["attendance_record_id"]
+isOneToOne: true
+      referencedRelation: "v_attendance_detail"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "absence_excuses_reason_key_fkey"
+      columns: ["reason_key"]
+isOneToOne: false
+      referencedRelation: "absence_reasons"
+      referencedColumns: ["key"]
+    },{
+      foreignKeyName: "absence_excuses_recorded_by_fkey"
+      columns: ["recorded_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"absence_reasons": {
+                  Row: {
+                    "created_at": string,"description": string | null,"is_active": boolean,"key": string,"name": string,"requires_note": boolean,"sort_order": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"description"?: string | null,"is_active"?: boolean,"key": string,"name": string,"requires_note"?: boolean,"sort_order"?: number
+                  }
+                  Update: {
+                    "created_at"?: string,"description"?: string | null,"is_active"?: boolean,"key"?: string,"name"?: string,"requires_note"?: boolean,"sort_order"?: number
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"app_settings": {
                   Row: {
                     "description": string | null,"key": string,"updated_at": string,"updated_by": string | null,"value": NonNullable<Json>
                   }
@@ -1239,19 +1291,69 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"strike_records": {
+                },"strike_dismissals": {
                   Row: {
-                    "created_at": string,"id": string,"member_id": string,"points": number,"policy_id": string | null,"reason": string,"recorded_by": string | null,"semester_id": string | null,"source": string,"void_reason": string | null,"voided_at": string | null,"voided_by": string | null
+                    "created_at": string,"dismissed_by": string | null,"id": string,"member_id": string,"reason": string,"semester_id": string,"trigger_key": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"id"?: string,"member_id": string,"points"?: number,"policy_id"?: string | null,"reason": string,"recorded_by"?: string | null,"semester_id"?: string | null,"source"?: string,"void_reason"?: string | null,"voided_at"?: string | null,"voided_by"?: string | null
+                    "created_at"?: string,"dismissed_by"?: string | null,"id"?: string,"member_id": string,"reason": string,"semester_id": string,"trigger_key": string
                   }
                   Update: {
-                    "created_at"?: string,"id"?: string,"member_id"?: string,"points"?: number,"policy_id"?: string | null,"reason"?: string,"recorded_by"?: string | null,"semester_id"?: string | null,"source"?: string,"void_reason"?: string | null,"voided_at"?: string | null,"voided_by"?: string | null
+                    "created_at"?: string,"dismissed_by"?: string | null,"id"?: string,"member_id"?: string,"reason"?: string,"semester_id"?: string,"trigger_key"?: string
                   }
                   Relationships: [
                     {
+      foreignKeyName: "strike_dismissals_dismissed_by_fkey"
+      columns: ["dismissed_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "strike_dismissals_member_id_fkey"
+      columns: ["member_id"]
+isOneToOne: false
+      referencedRelation: "members"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "strike_dismissals_member_id_fkey"
+      columns: ["member_id"]
+isOneToOne: false
+      referencedRelation: "v_attendance_detail"
+      referencedColumns: ["member_id"]
+    },{
+      foreignKeyName: "strike_dismissals_member_id_fkey"
+      columns: ["member_id"]
+isOneToOne: false
+      referencedRelation: "v_people_directory"
+      referencedColumns: ["member_id"]
+    },{
+      foreignKeyName: "strike_dismissals_semester_id_fkey"
+      columns: ["semester_id"]
+isOneToOne: false
+      referencedRelation: "semesters"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"strike_records": {
+                  Row: {
+                    "created_at": string,"event_id": string | null,"id": string,"member_id": string,"points": number,"policy_id": string | null,"reason": string,"recorded_by": string | null,"semester_id": string | null,"source": string,"trigger_key": string | null,"void_reason": string | null,"voided_at": string | null,"voided_by": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"event_id"?: string | null,"id"?: string,"member_id": string,"points"?: number,"policy_id"?: string | null,"reason": string,"recorded_by"?: string | null,"semester_id"?: string | null,"source"?: string,"trigger_key"?: string | null,"void_reason"?: string | null,"voided_at"?: string | null,"voided_by"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"event_id"?: string | null,"id"?: string,"member_id"?: string,"points"?: number,"policy_id"?: string | null,"reason"?: string,"recorded_by"?: string | null,"semester_id"?: string | null,"source"?: string,"trigger_key"?: string | null,"void_reason"?: string | null,"voided_at"?: string | null,"voided_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "strike_records_event_id_fkey"
+      columns: ["event_id"]
+isOneToOne: false
+      referencedRelation: "events"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "strike_records_member_id_fkey"
       columns: ["member_id"]
 isOneToOne: false
@@ -1544,6 +1646,9 @@ isOneToOne: false
               "nominee_person_id": string,"votes": number
             }[]
                            },
+"record_absence":
+{ Args: { "p_event": string,"p_excused": boolean,"p_note"?: string,"p_person": string,"p_reason"?: string }; Returns: string
+                           },
 "require_permission":
 { Args: { "p": string }; Returns: undefined
                            },
@@ -1564,6 +1669,9 @@ isOneToOne: false
                            },
 "suggest_people":
 { Args: { "p_first": string,"p_last": string,"p_limit"?: number }; Returns: Json
+                           },
+"wb_find_event":
+{ Args: { "p_date": string,"p_pin": string,"p_semester": string }; Returns: string
                            }
           }
           Enums: {

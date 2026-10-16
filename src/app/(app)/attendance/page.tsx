@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ClipboardPen, FileUp, SearchCheck } from "lucide-react";
+import { CalendarX2, ClipboardPen, FileUp, SearchCheck } from "lucide-react";
 import { requirePermission } from "@/lib/auth";
 import { PageHeader, EmptyState, StatCard } from "@/components/ui/misc";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -23,10 +23,11 @@ export default async function AttendancePage({ searchParams }: PageProps<"/atten
   return (
     <>
       <PageHeader title="Attendance" description="Import PIN exports, enter paper sign-ins, and resolve scans that could not be matched." />
-      <div className="mb-5 grid gap-3 sm:grid-cols-3">
+      <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {s.can("attendance.import") ? <Link href="/attendance/import" className="flex items-center gap-3 rounded-lg border border-brand bg-brand px-4 py-4 text-white shadow-sm hover:bg-brand-600"><FileUp className="h-6 w-6" /><span><span className="block font-semibold">Import a PIN export</span><span className="text-xs text-brand-100">Upload → map → preview → commit</span></span></Link> : null}
         {s.can("attendance.write") ? <Link href="/attendance/manual" className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm hover:border-brand"><ClipboardPen className="h-6 w-6 text-brand" /><span><span className="block font-semibold text-ink">Manual / paper sign-in</span><span className="text-xs text-slate-500">Pick an event, tick names</span></span></Link> : null}
         <Link href="/attendance/unmatched" className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm hover:border-brand"><SearchCheck className="h-6 w-6 text-brand" /><span><span className="block font-semibold text-ink">Unmatched scans</span><span className="text-xs text-slate-500">{c.unmatched_open ?? 0} open</span></span></Link>
+        <Link href="/attendance/absences" className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm hover:border-brand"><CalendarX2 className="h-6 w-6 text-brand" /><span><span className="block font-semibold text-ink">Absences</span><span className="text-xs text-slate-500">Excused &amp; unexcused</span></span></Link>
       </div>
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="Imports awaiting review" value={c.imports_in_preview ?? 0} tone={c.imports_in_preview ? "warn" : "default"} />

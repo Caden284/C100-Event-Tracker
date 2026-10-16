@@ -18,6 +18,8 @@ import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { StandingBadge, StatusBadge } from "@/components/standing-badge";
 import { addNote, recordDues, recordStrike, updateMember, voidStrike } from "../actions";
+import { AbsenceForm } from "@/components/absence-form";
+import { loadAbsenceReasons, loadAbsences } from "@/lib/data/absences";
 
 export const metadata = { title: "Member" };
 
@@ -54,6 +56,14 @@ export default async function MemberPage({ params }: PageProps<"/members/[id]">)
     { status_key: m.status_key, email, member_since: m.member_since, dues_status: myDues ? (myDues.dues_recorded ? (myDues.dues_ok ? "paid" : "unpaid") : null) : null },
     semFacts, rules, { semester: current, today, scheduledRemaining: scheduledRemainingByCategory(events, today), behindPaceMargin: atRisk.behind_pace_margin },
   );
+  const [absences, reasons] = await Promise.all([
+    current ? loadAbsences(s, current.id, { personId: person.id }) : Promise.resolve({ rows: [], canSeeReasons: false }),
+    s.can("attendance.excuse") || s.can("members.notes") ? loadAbsenceReasons(s, true) : Promise.resolve([]),
+  ]);
+  const reasonName = new Map(reasons.map((r) => [r.key, r.name]));
+  const excuseCap = rules.strikes.max_excused_per_semester;
+  const strikeCats = rules.strikes.triggers.unexcused_absence.categories;
+  const capUsed = absences.rows.filter((a) => a.excused && a.category_key && strikeCats.includes(a.category_key)).length;
   const strikeCount = activeStrikeCount((strikes.data ?? []) as never, current?.id);
   const elig = strikeEligibility(strikeCount, rules, policy?.status ?? null);
   const name = displayName(person);
@@ -69,7 +79,7 @@ export default async function MemberPage({ params }: PageProps<"/members/[id]">)
       {!email ? <Callout tone="warning" className="mb-4" title="No email — data-quality issue">PIN scans are matched by email, so attendance for this member may be missing. Add their GSU email below. This is not evidence that they did not attend.</Callout> : null}
       {prospect.data?.status === "converted" ? <Callout tone="info" className="mb-4">Converted from a prospective member{prospect.data.converted_at ? ` on ${formatDate(prospect.data.converted_at.slice(0, 10))}` : ""}. <Link className="underline" href={`/prospects/${prospect.data.id}`}>Recruitment history</Link>.</Callout> : null}
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader title={`Progress · ${current?.name ?? "no semester"}`} description={policyLabel(policy)} actions={<StandingBadge p={progress} draft={policy?.status !== "approved"} />} />
           <CardBody className="space-y-4">
@@ -91,7 +101,7 @@ export default async function MemberPage({ params }: PageProps<"/members/[id]">)
           </CardBody>
         </Card>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           {s.can("discipline.read") ? (
             <Card>
               <CardHeader title="Strikes & formal actions" />
@@ -127,6 +137,29 @@ export default async function MemberPage({ params }: PageProps<"/members/[id]">)
                   </details>
                 ) : null}
                 {s.can("discipline.propose") ? <Link href={`/standing/actions/new?member=${id}`} className="block text-xs font-medium text-brand hover:underline">Propose a formal action →</Link> : null}
+              </CardBody>
+            </Card>
+          ) : null}
+          {s.can("attendance.read") && current ? (
+            <Card>
+              <CardHeader title="Absences" description={excuseCap === null ? current.name : `${current.name} · ${capUsed} of ${excuseCap} excused absences used`} />
+              <CardBody className="space-y-3 text-sm">
+                {absences.rows.length === 0 ? <p className="text-xs text-slate-500">No absences recorded this semester.</p> : (
+                  <ul className="space-y-1 text-xs">{absences.rows.map((a) => (
+                    <li key={a.record_id}>
+                      <Badge tone={a.excused ? "blue" : "amber"}>{a.excused ? "Excused" : "Unexcused"}</Badge>{" "}
+                      {formatDate(a.event_date)} · <Link href={`/events/${a.event_id}`} className="hover:text-brand">{a.event_name}</Link>
+                      {a.excused && absences.canSeeReasons ? <span className="block text-slate-500">{reasonName.get(a.reason_key ?? "") ?? ""}{a.note ? ` · ${a.note}` : ""}</span> : null}
+                    </li>
+                  ))}</ul>
+                )}
+                {excuseCap !== null && capUsed > excuseCap ? <Callout tone="warning">Over the excuse limit: excuses after the first {excuseCap} no longer protect from strikes.</Callout> : null}
+                {s.can("attendance.excuse") ? (
+                  <details><summary className="cursor-pointer text-xs font-medium text-brand">Record an absence…</summary>
+                    <div className="mt-2"><AbsenceForm reasons={reasons.filter((r) => r.is_active)} member={{ member_id: id, person_id: person.id }}
+                      events={events.filter((e) => e.event_date && !e.archived_at && e.planning_status !== "cancelled" && e.category_key !== "recruitment")} compact idPrefix="mem-ab" /></div>
+                  </details>
+                ) : null}
               </CardBody>
             </Card>
           ) : null}
@@ -171,7 +204,7 @@ export default async function MemberPage({ params }: PageProps<"/members/[id]">)
                   <TD className="whitespace-nowrap">{formatDate(f.event_date)}</TD>
                   <TD><Link href={`/events/${f.event_id}`} className="hover:text-brand">{f.event_name}</Link></TD>
                   <TD>{f.category_key ? <Badge tone={CATEGORY_TONES[f.category_key]}>{f.category_key}</Badge> : "—"}{f.effective_category !== f.category_key ? <span className="ml-1 text-xs text-slate-400">counts as {f.effective_category ?? "none"}</span> : null}</TD>
-                  <TD><Badge tone={f.counts_as_attended ? "green" : "neutral"}>{f.status_key}</Badge>{m.member_since && f.event_date && f.event_date < m.member_since ? <span className="block text-xs text-slate-400">before membership</span> : null}</TD>
+                  <TD><Badge tone={f.counts_as_attended ? "green" : f.status_key === "excused" ? "blue" : f.status_key === "absent" ? "amber" : "neutral"}>{f.status_key === "absent" ? "unexcused" : f.status_key}</Badge>{m.member_since && f.event_date && f.event_date < m.member_since ? <span className="block text-xs text-slate-400">before membership</span> : null}</TD>
                   <TD className="text-xs text-slate-500">{f.source?.replace(/_/g, " ")}</TD>
                 </TR>
               )))}

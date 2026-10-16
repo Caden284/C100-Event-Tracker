@@ -15,6 +15,8 @@ import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { addPinName, addWalkIn, correctAttendance, removePinName, setArchived } from "../actions";
 import { RosterChecklist, type RosterPerson } from "./roster-checklist";
+import { AbsenceForm } from "@/components/absence-form";
+import { loadAbsenceReasons } from "@/lib/data/absences";
 
 export const metadata = { title: "Event" };
 
@@ -29,7 +31,7 @@ export default async function EventPage({ params }: PageProps<"/events/[id]">) {
       ? fetchAll((from, to) => s.supabase.from("attendance_records").select("id, person_id, status_key, source, source_email, source_marked_by, source_marked_on, change_reason, created_at, updated_at, import_id, people(first_name, last_name, preferred_name)").eq("event_id", id).order("created_at").range(from, to))
       : Promise.resolve([]),
     s.supabase.from("attendance_statuses").select("key, name, counts_as_attended, is_active").order("sort_order"),
-    s.can("attendance.write")
+    s.can("attendance.write") || s.can("attendance.excuse")
       ? fetchAll((from, to) => s.supabase.from("v_people_directory").select("person_id, first_name, last_name, preferred_name, email, member_id, status_key, prospect_id, prospect_status").order("last_name").order("person_id").range(from, to))
       : Promise.resolve([]),
   ]);
@@ -43,7 +45,23 @@ export default async function EventPage({ params }: PageProps<"/events/[id]">) {
   const today = todayIso();
   const st = rosterStatus(ev, records.length, today);
   const attended = records.filter((r) => counted.has(r.status_key));
-  const activeStatuses = (statuses ?? []).filter((x) => x.is_active);
+  // "Excused" needs a reason, so it is recorded with the absence form instead.
+  const activeStatuses = (statuses ?? []).filter((x) => x.is_active && x.key !== "excused");
+  const canExcuse = s.can("attendance.excuse");
+  const canSeeReasons = canExcuse || s.can("members.notes");
+  const [reasons, excuseRows] = await Promise.all([
+    canSeeReasons ? loadAbsenceReasons(s, true) : Promise.resolve([]),
+    canSeeReasons && records.some((r) => r.status_key === "excused")
+      ? s.supabase.from("absence_excuses").select("attendance_record_id, reason_key, note").in("attendance_record_id", records.filter((r) => r.status_key === "excused").map((r) => r.id))
+      : Promise.resolve({ data: [] }),
+  ]);
+  const reasonName = new Map(reasons.map((r) => [r.key, r.name]));
+  const excuseBy = new Map((excuseRows.data ?? []).map((e) => [e.attendance_record_id, e]));
+  const absentCandidates = people
+    .filter((p) => p.member_id && !["removed", "graduated"].includes(p.status_key ?? "") && !counted.has(recBy.get(p.person_id!) ?? ""))
+    .map((p) => ({ id: p.person_id!, label: `${displayName(p)}${recBy.get(p.person_id!) === "excused" ? " (excused)" : recBy.get(p.person_id!) === "absent" ? " (unexcused)" : ""}` }));
+  const excusedCount = records.filter((r) => r.status_key === "excused").length;
+  const unexcusedCount = records.filter((r) => r.status_key === "absent").length;
   const cat = ev.event_categories as { name: string } | null;
 
   return (
@@ -65,7 +83,7 @@ export default async function EventPage({ params }: PageProps<"/events/[id]">) {
       {ev.category_key === "recruitment" ? <Callout tone="info" className="mb-4">Recruitment event — tracked for prospective members. Member scans are logged but do not count toward member standards.</Callout> : null}
       {ev.counting_override ? <Callout tone="info" className="mb-4" title="Counting exception">{ev.counting_override === "none" ? "Counts toward no requirement" : `Counts as ${ev.counting_override}`} — {ev.counting_override_reason}</Callout> : null}
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader title={`Attendance (${attended.length} counted · ${records.length} records)`} description="Imported and manual records appear together; the source column shows where each came from." />
           {records.length === 0 ? <EmptyState title="No attendance yet">Upload the PIN export or use the paper sign-in entry.</EmptyState> : (
@@ -79,7 +97,8 @@ export default async function EventPage({ params }: PageProps<"/events/[id]">) {
                     <TR key={r.id}>
                       <TD><Link className="font-medium text-ink hover:text-brand" href={`/people/${r.person_id}`}>{displayName(p)}</Link>{r.source_email ? <span className="block text-xs text-slate-400">{r.source_email}</span> : null}</TD>
                       <TD><Badge tone={t === "member" ? "blue" : "gold"}>{t ?? "—"}</Badge></TD>
-                      <TD><Badge tone={counted.has(r.status_key) ? "green" : "neutral"}>{statusName.get(r.status_key) ?? r.status_key}</Badge></TD>
+                      <TD><Badge tone={counted.has(r.status_key) ? "green" : r.status_key === "excused" ? "blue" : r.status_key === "absent" ? "amber" : "neutral"}>{statusName.get(r.status_key) ?? r.status_key}</Badge>
+                        {r.status_key === "excused" && canSeeReasons ? <span className="block text-xs text-slate-500">{reasonName.get(excuseBy.get(r.id)?.reason_key ?? "") ?? ""}{excuseBy.get(r.id)?.note ? ` · ${excuseBy.get(r.id)?.note}` : ""}</span> : null}</TD>
                       <TD className="text-xs text-slate-500">{r.source.replace(/_/g, " ")}{r.source_marked_by ? ` · ${r.source_marked_by}` : ""}{r.change_reason ? <span className="block text-slate-400">{r.change_reason}</span> : null}</TD>
                       {s.can("attendance.write") ? (
                         <TD className="text-right">
@@ -87,7 +106,8 @@ export default async function EventPage({ params }: PageProps<"/events/[id]">) {
                             <summary className="cursor-pointer text-xs text-brand">Correct…</summary>
                             <ActionForm action={correctAttendance} className="mt-2 w-64 space-y-2 rounded-md border border-slate-200 bg-white p-2 shadow-lg">
                               <input type="hidden" name="event_id" value={id} /><input type="hidden" name="id" value={r.id} /><input type="hidden" name="person_id" value={r.person_id} />
-                              <Select name="status_key" defaultValue={r.status_key} className="h-8 text-xs" aria-label="New status">
+                              {r.status_key === "excused" ? <p className="text-xs text-slate-500">To change the excuse, use “Record an absence”.</p> : null}
+                              <Select name="status_key" defaultValue={r.status_key === "excused" ? "absent" : r.status_key} className="h-8 text-xs" aria-label="New status">
                                 {activeStatuses.map((x) => <option key={x.key} value={x.key}>{x.name}</option>)}
                               </Select>
                               <Input name="reason" placeholder="Reason (required)" required minLength={5} className="h-8 text-xs" />
@@ -107,7 +127,7 @@ export default async function EventPage({ params }: PageProps<"/events/[id]">) {
           )}
         </Card>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <Card>
             <CardHeader title="Details" />
             <CardBody>
@@ -147,6 +167,16 @@ export default async function EventPage({ params }: PageProps<"/events/[id]">) {
               ) : null}
             </CardBody>
           </Card>
+          {ev.category_key !== "recruitment" && (canExcuse || excusedCount + unexcusedCount > 0) ? (
+            <Card id="absences">
+              <CardHeader title={`Absences (${excusedCount} excused · ${unexcusedCount} unexcused)`} description="Members who told an officer they couldn't attend. Excused absences don't count as attending; they protect from a strike for this event." />
+              {canExcuse ? (
+                <CardBody>
+                  {absentCandidates.length ? <AbsenceForm reasons={reasons.filter((r) => r.is_active)} event={{ id }} members={absentCandidates} compact idPrefix="ev-ab" /> : <p className="text-xs text-slate-500">Every member is recorded as attending.</p>}
+                </CardBody>
+              ) : null}
+            </Card>
+          ) : null}
           {s.can("events.write") ? (
             <Card>
               <CardBody>
@@ -161,7 +191,7 @@ export default async function EventPage({ params }: PageProps<"/events/[id]">) {
       </div>
 
       {s.can("attendance.write") ? (
-        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Card className="lg:col-span-2" id="quick-entry">
             <CardHeader title="Quick entry from a paper sign-in sheet" description="Tick everyone who signed in. People who already have a record are locked so nothing is double-counted." />
             <CardBody><RosterChecklist eventId={id} people={roster} statuses={activeStatuses} /></CardBody>
