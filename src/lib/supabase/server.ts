@@ -10,8 +10,11 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL, assertPublicEnv } from "@/lib/env";
  * roles allow. Use this for all normal reads and writes.
  */
 export async function createClient() {
-  assertPublicEnv();
+  // Read the request first: it marks every page using this client as per-request
+  // (never prerendered at build time), so a build without env vars still succeeds
+  // and the missing configuration is reported at request time instead.
   const cookieStore = await cookies();
+  assertPublicEnv();
   return createServerClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
     cookies: {
       getAll() {
