@@ -7,6 +7,16 @@
 3. For paper sign-ins, open the event → **Quick entry from a paper sign-in sheet**.
 4. Check the dashboard's **Needs your attention** panel. It lists past events with no attendance, missing emails, events without a category, and imports left in preview.
 5. Move events on the **Calendar** as plans change. Other officers see the change immediately.
+6. When a member says they can't make it, record it: open the event → **Absences**, or **Attendance → Absences**. Pick *Excused* with a reason (under the weather, work shift, class, mental health day, …) or *Unexcused*. You can record it before or after the event. Don't write medical or personal details in the note.
+7. Review **Probation & Standing → Suggested strikes**. Confirm the ones that are right; dismiss the rest with a reason (for example, an excuse that came in late). Nothing is recorded until you confirm.
+
+### Excused absences and strikes
+
+- An excused absence **never counts as attending** and doesn't lower a requirement. It only protects the member from a strike for that event.
+- Each semester's policy sets how many excused absences protect a member (default 3), counting only events that can earn a strike (default: General Body Meetings). Past the limit, the excuse is still recorded but the strike is suggested, marked "over the limit".
+- Only officers with **Record excused and unexcused absences** (Secretary and President by default) can record them, and only they and officers who read private member notes see the reasons. Everyone else sees "Excused".
+- Suggestions skip anything the hub can't judge fairly: members without an email, meetings with no attendance uploaded, and the midterm/end-of-semester checks while a held event still has no roster.
+- A make-up service event can remove a strike: on the member's page, record a strike of **−1** with the reason.
 
 ## Start of a semester
 

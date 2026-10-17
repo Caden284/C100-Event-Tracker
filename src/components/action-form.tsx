@@ -23,6 +23,8 @@ export function ActionForm({ action, children, className, confirm, resetOnSucces
   const formRef = useRef<HTMLFormElement>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const confirmed = useRef(false);
+  // The button that opened the confirmation, so its name/value is still submitted afterwards.
+  const submitter = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (state?.ok) {
@@ -41,6 +43,7 @@ export function ActionForm({ action, children, className, confirm, resetOnSucces
         onSubmit={(e) => {
           if (confirm && !confirmed.current) {
             e.preventDefault();
+            submitter.current = (e.nativeEvent as SubmitEvent).submitter ?? null;
             dialogRef.current?.showModal();
             return;
           }
@@ -69,7 +72,8 @@ export function ActionForm({ action, children, className, confirm, resetOnSucces
               onClick={() => {
                 confirmed.current = true;
                 dialogRef.current?.close();
-                formRef.current?.requestSubmit();
+                const btn = submitter.current;
+                formRef.current?.requestSubmit(btn instanceof HTMLButtonElement || btn instanceof HTMLInputElement ? btn : undefined);
               }}
             >
               {confirm.confirmLabel ?? "Confirm"}

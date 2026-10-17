@@ -7,9 +7,13 @@ Nothing below is enforced as a chapter rule until an authorized officer approves
 1. **Fall 2026 attendance requirements.** 2 meetings / 3 general / 3 service / 3 mentoring were imported from the workbook as a **draft**. Approve or amend them.
    - The hub found that only **2 mentoring events remain scheduled** this semester, while the draft requires 3. Add a mentoring event, or adjust the requirement.
 2. **Dues and Good Standing.** Should unpaid dues prevent Good Standing (workbook: yes)? What is the dues amount? Who records payments: the Treasurer only?
-3. **Strike policy** (draft: 1 = Warning, 2 = Probation, 3 = Removal). What earns a strike, when strikes are reviewed (continuously or at checkpoints), whether they expire at semester end, and whether to enable it at all.
+3. **Strike policy.** The draft contains the hub's *proposal*, which the board should approve, amend or reject:
+   - **What earns 1 strike:** an unexcused absence from a General Body Meeting; being under 50% of the requirements at the midterm checkpoint (default: the middle of the semester); requirements unmet when the semester ends; dues unpaid after the deadline.
+   - **What strikes lead to:** 1 = written warning, 2 = probation and a meeting with the President or Membership Chair, 3 = executive board review and vote. Removal is never automatic.
+   - Written notice within 7 days of a strike; a 7-day appeal window; strikes reset each semester; a make-up service event can remove one.
+   - The hub only *suggests* strikes. An officer confirms or dismisses each one.
 4. **Probation:** criteria, notice to the member, the review meeting, the appeal process and its deadlines. The **Probation & Standing → Policy checklist** tab lists suggested options, clearly marked as proposals.
-5. **Excused absences:** adopt them? (The "Excused" status exists but is switched off.) Do they count as attendance?
+5. **Excused absences.** Built as requested: officers record them with a reason, they never count as attendance, and they protect from a strike for that event. Confirm the limit (draft: 3 per semester) and the list of reasons (Settings → Categories & statuses).
 6. **New members:** does recruitment-period attendance count once someone becomes a member? (Default: no.)
 7. **Study sessions:** currently tracked on the calendar and counting toward nothing, per the 9/25 request.
 8. **Awards:** eligibility thresholds, whether each of *Outstanding General Body Member*, *Outstanding Perspective* and *Most Improved Member* uses nominations, voting and/or an officer decision; who votes; anonymous or not; who sees results.
@@ -34,4 +38,4 @@ Nothing below is enforced as a chapter rule until an authorized officer approves
 - **Bulk resolution** of unmatched scans is not available (resolved one at a time, by design, to avoid wrong merges).
 - Aggregations run in the app server and are sized for a chapter (thousands of records). For tens of thousands, move them into SQL views.
 - No dark mode. Dates are calendar dates; "today" uses Eastern Time.
-- **Tests:** 55 unit tests run with `npm test`; 33 database tests need a local Supabase (`npm run test:db`). The browser walkthrough (sign-in, migration, import wizard, calendar drag-and-drop, role restrictions, mobile layout, backup and restore) was run manually with Playwright during development, but is not committed as an automated end-to-end suite.
+- **Tests:** 68 unit tests run with `npm test`; 40 database tests need a local Supabase (`npm run test:db`). The browser walkthrough (sign-in, migration, import wizard, calendar drag-and-drop, role restrictions, mobile layout, backup and restore) was run manually with Playwright during development, but is not committed as an automated end-to-end suite.

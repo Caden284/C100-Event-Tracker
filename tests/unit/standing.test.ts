@@ -16,7 +16,7 @@ describe("workbook policy (draft)", () => {
     expect(combinedRequirement(rules)).toBe(11);
     expect(standoutThreshold(rules)).toBe(17);
     expect(rules.strikes.enabled).toBe(false);
-    expect(rules.strikes.thresholds.map((t) => t.label)).toEqual(["Warning", "Probation", "Removal"]);
+    expect(rules.strikes.thresholds.map((t) => t.label)).toEqual(["Written warning", "Probation", "Board review (possible removal)"]);
   });
   it("maps categories: Study and Recruitment count toward nothing", () => {
     expect(requirementForCategory(rules, "meeting")?.key).toBe("meetings");

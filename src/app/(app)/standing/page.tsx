@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { requirePermission } from "@/lib/auth";
 import { resolveSemester } from "@/lib/data/semesters";
-import { loadStanding } from "@/lib/data/roster";
+import { loadStrikeSuggestions } from "@/lib/data/absences";
+import { TRIGGER_LABELS } from "@/lib/domain/strikes";
+import { SelectAll } from "@/components/select-all";
 import { activeStrikeCount, strikeEligibility, ACTION_LABELS } from "@/lib/domain/standing";
 import { formatDate } from "@/lib/domain/dates";
 import { policyLabel } from "@/lib/domain/policy";
@@ -13,7 +15,7 @@ import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { StandingBadge, StatusBadge } from "@/components/standing-badge";
 import { sp } from "@/lib/url";
-import { decideAction } from "./actions";
+import { decideAction, decideSuggestions } from "./actions";
 
 export const metadata = { title: "Probation & standing" };
 
@@ -22,7 +24,9 @@ export default async function StandingPage({ searchParams }: PageProps<"/standin
   const s = await requirePermission("standing.read");
   const view = sp(params, "view") ?? "attention";
   const { current } = await resolveSemester(s.supabase);
-  const { policy, rules, members } = await loadStanding(s, current);
+  const { policy, rules, members, result, today } = await loadStrikeSuggestions(s, current);
+  const memberById = new Map(members.map((m) => [m.member_id, m]));
+  const trig = rules.strikes.triggers;
   const [strikes, actions] = await Promise.all([
     s.can("discipline.read") ? s.supabase.from("strike_records").select("member_id, points, voided_at, semester_id") : Promise.resolve({ data: [] }),
     s.can("discipline.read") ? s.supabase.from("disciplinary_actions").select("*, members(id, people(first_name, last_name, preferred_name)), membership_policies(name, version, status)").order("created_at", { ascending: false }) : Promise.resolve({ data: [] }),
@@ -48,7 +52,7 @@ export default async function StandingPage({ searchParams }: PageProps<"/standin
         actions={s.can("policies.read") ? <Link href="/settings/policies" className="text-sm font-medium text-brand hover:underline">Policy settings →</Link> : null} />
       {!approvedPolicy ? (
         <Callout tone="draft" className="mb-4" title="Draft — pending executive board approval">
-          The strike system (1 = warning, 2 = probation, 3 = removal) and the attendance requirements are drafts. The hub shows progress and informational eligibility only. It does not issue warnings, place anyone on probation, or recommend removal until a policy is approved.
+          The strike system (1 = written warning, 2 = probation, 3 = board review) and the attendance requirements are drafts. The hub shows progress, suggested strikes and informational eligibility only. It never records a strike on its own, issues warnings, places anyone on probation, or recommends removal.
         </Callout>
       ) : null}
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -59,6 +63,7 @@ export default async function StandingPage({ searchParams }: PageProps<"/standin
       </div>
       <Tabs current={view} tabs={[
         { key: "attention", label: "Needs attention", href: "/standing?view=attention", count: attention.length },
+        ...(s.can("discipline.read") ? [{ key: "suggested", label: "Suggested strikes", href: "/standing?view=suggested", count: result?.suggestions.length ?? 0 }] : []),
         { key: "strikes", label: "Strikes (eligibility)", href: "/standing?view=strikes", count: withStrikes.length },
         { key: "actions", label: "Formal actions", href: "/standing?view=actions", count: acts.length },
         { key: "setup", label: "Policy checklist", href: "/standing?view=setup" },
@@ -80,6 +85,57 @@ export default async function StandingPage({ searchParams }: PageProps<"/standin
                   </TR>
                 ))}</TBody>
               </Table>
+            )}
+          </Card>
+        ) : null}
+        {view === "suggested" ? (
+          <Card>
+            <CardHeader title="Suggested strikes" description="Calculated from the semester's policy. Nothing is recorded until an officer confirms it, and dismissed suggestions aren't shown again. Excused absences (within the limit) never earn a strike." />
+            {!s.can("discipline.read") ? <EmptyState title="You do not have access to strike records" /> : !result || !current ? <EmptyState title="No semester selected" /> : (
+              <CardBody className="space-y-4">
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                  <p className="font-semibold text-slate-700">What earns a strike under {policy?.status === "approved" ? "the approved" : "the DRAFT"} policy</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                    <li>{trig.unexcused_absence.enabled ? <>Unexcused absence from a <strong className="capitalize">{trig.unexcused_absence.categories.join(" / ") || "—"}</strong> event: +{trig.unexcused_absence.points}. Up to {rules.strikes.max_excused_per_semester ?? "unlimited"} excused absences per semester protect from this.</> : "Unexcused absences: off."}</li>
+                    <li>{trig.midterm_checkpoint.enabled ? <>Below {trig.midterm_checkpoint.min_percent}% of requirements at the midterm checkpoint ({formatDate(result.midtermDate)}): +{trig.midterm_checkpoint.points}{result.midtermDate >= today ? " — not reached yet" : ""}.</> : "Midterm checkpoint: off."}</li>
+                    <li>{trig.end_of_semester.enabled ? <>Requirements not met when the semester ends ({formatDate(current.end_date)}): +{trig.end_of_semester.points}.</> : "End of semester: off."}</li>
+                    <li>{trig.dues_deadline.enabled ? <>Dues unpaid after the deadline: +{trig.dues_deadline.points}.{result.duesSkippedReason ? ` Not checked: ${result.duesSkippedReason}` : ""}</> : "Dues: off."}</li>
+                  </ul>
+                  {result.eventsWithoutAttendance.length ? <p className="mt-2 text-amber-800">Absences not checked yet: no attendance uploaded for {result.eventsWithoutAttendance.map((e) => `${e.name} (${formatDate(e.event_date)})`).join(", ")}.</p> : null}
+                  {result.midtermWaitingFor.length ? <p className="mt-2 text-amber-800">Midterm checkpoint waiting for attendance from {result.midtermWaitingFor.length} event{result.midtermWaitingFor.length === 1 ? "" : "s"}: {result.midtermWaitingFor.map((e) => `${e.name} (${formatDate(e.event_date)})`).join(", ")}. Upload those rosters (or archive events that didn&apos;t happen) first.</p> : null}
+                  {result.finalWaitingFor.length ? <p className="mt-2 text-amber-800">End-of-semester check waiting for attendance from {result.finalWaitingFor.length} event{result.finalWaitingFor.length === 1 ? "" : "s"}.</p> : null}
+                  {result.skippedNoEmail ? <p className="mt-1">{result.skippedNoEmail} member{result.skippedNoEmail === 1 ? "" : "s"} without an email {result.skippedNoEmail === 1 ? "is not" : "are not"} checked for attendance strikes (their scans can&apos;t be matched).</p> : null}
+                </div>
+                {result.suggestions.length === 0 ? <EmptyState title="No strikes suggested right now" /> : (
+                  <ActionForm action={decideSuggestions} className="space-y-3" confirm={{ title: "Apply your choice to the selected suggestions?", body: policy?.status === "approved" ? "Confirmed strikes count toward the approved thresholds. Formal actions still need approval. Notify members through the chapter's process." : "The strike policy is a DRAFT: confirmed strikes are tracked only and trigger no action." }}>
+                    <input type="hidden" name="semester_id" value={current.id} />
+                    {s.can("discipline.propose") ? <SelectAll name="pick" /> : null}
+                    <Table>
+                      <THead><tr><TH className="w-8"><span className="sr-only">Select</span></TH><TH>Member</TH><TH>Rule</TH><TH>Why</TH><TH className="text-right">Strikes</TH></tr></THead>
+                      <TBody>{result.suggestions.map((x) => {
+                        const m = memberById.get(x.member_id);
+                        const key = `${x.member_id}|${x.trigger_key}`;
+                        return (
+                          <TR key={key}>
+                            <TD>{s.can("discipline.propose") ? <input type="checkbox" name="pick" value={key} aria-label={`Select ${m?.name ?? "member"}: ${x.reason}`} /> : null}</TD>
+                            <TD><Link className="font-medium hover:text-brand" href={`/members/${x.member_id}`}>{m?.name ?? "Member"}</Link></TD>
+                            <TD><Badge tone="draft">{TRIGGER_LABELS[x.kind]}</Badge></TD>
+                            <TD className="text-xs">{x.reason}{x.note ? <span className="block text-amber-800">{x.note}</span> : null}</TD>
+                            <TD className="tabular text-right">+{x.points}</TD>
+                          </TR>
+                        );
+                      })}</TBody>
+                    </Table>
+                    {s.can("discipline.propose") ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <SubmitButton name="op" value="confirm">Confirm selected</SubmitButton>
+                        <Input name="reason" placeholder="Reason for dismissing (e.g. excused late, data error)" className="h-9 max-w-sm text-sm" aria-label="Reason for dismissing" />
+                        <SubmitButton name="op" value="dismiss" variant="secondary">Dismiss selected</SubmitButton>
+                      </div>
+                    ) : <p className="text-xs text-slate-500">Only officers who can record strikes can confirm or dismiss suggestions.</p>}
+                  </ActionForm>
+                )}
+              </CardBody>
             )}
           </Card>
         ) : null}
@@ -146,11 +202,12 @@ export default async function StandingPage({ searchParams }: PageProps<"/standin
               <ul className="space-y-2 text-sm">{checklist.map((c) => <li key={c.text} className="flex items-center gap-2">{c.done ? <Badge tone="green">Done</Badge> : <Badge tone="draft">To do</Badge>}{c.text}</li>)}</ul>
               <h3 className="mt-5 text-sm font-semibold">Proposals for board consideration (not chapter rules)</h3>
               <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-slate-600">
-                <li>Issue a strike only after an officer reviews attendance at a fixed checkpoint (e.g. mid-semester and final week), not continuously.</li>
-                <li>Do not count members without an email as missing attendance until the email is fixed.</li>
-                <li>Allow excused absences for documented academic or medical conflicts, recorded with a reason.</li>
-                <li>Require a written notice and a review meeting before probation takes effect, with an appeal window (e.g. 7 days).</li>
-                <li>Decide whether dues status is part of Good Standing or handled separately by the Treasurer.</li>
+                <li>Strikes only for things a member controls and knew about in advance: an unexcused absence from a General Body Meeting, being under half of the requirements at the midterm checkpoint, requirements unmet at the end of the semester, and dues unpaid after the deadline.</li>
+                <li>Excused absences (illness, work, class, a mental health day…) never earn a strike, up to 3 per semester. Each is recorded by an officer with a reason.</li>
+                <li>1 strike = written warning; 2 = probation and a meeting with the President or Membership Chair; 3 = executive board review and vote. Removal is never automatic.</li>
+                <li>Written notice within 7 days of each strike, and a 7-day appeal window.</li>
+                <li>Strikes reset each semester. A make-up service event can remove one strike (record it as −1).</li>
+                <li>Members without an email are never treated as absent until the email is fixed.</li>
               </ul>
             </CardBody>
           </Card>

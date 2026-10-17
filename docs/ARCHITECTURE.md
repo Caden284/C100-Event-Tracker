@@ -37,8 +37,9 @@
 ```
 semesters ─┬─ events ─┬─ event_pin_names        (exact PIN titles / aliases)
            │          └─ attendance_records ── people ─┬─ person_identifiers (emails incl. old ones, card ids)
+           │                 └─ absence_excuses (reason, note; restricted)  (absence_reasons)
            │                 UNIQUE(event, person)     ├─ members ─┬─ member_notes / member_dues / member_status_history
-           │                                           │           ├─ strike_records / disciplinary_actions
+           │                                           │           ├─ strike_records (trigger_key) / strike_dismissals / disciplinary_actions
            │                                           └─ prospective_members (→ converted_member_id)
            ├─ membership_policies (draft→approved→retired, versioned) ── policy_approvals
            ├─ recognition_periods ── nominations / votes / results   (recognition_categories)
@@ -64,6 +65,8 @@ Key decisions:
 | Committing an import | SQL `commit_attendance_import()` | Single transaction |
 | Attendance progress, calculated standing, Standout, behind pace | TS `computeProgress()` | Policy rules are JSON, so this is clearer in TypeScript. Each result explains its reasons |
 | Strike eligibility | TS `strikeEligibility()` | Always states whether the policy is a draft |
+| Strike suggestions | TS `suggestStrikes()` (`src/lib/domain/strikes.ts`) | Rules come from the policy JSON. Each suggestion has a stable `trigger_key`; confirming inserts a `strike_records` row with it (unique per member and semester), dismissing inserts a `strike_dismissals` row. The server recalculates suggestions before confirming |
+| Excused absences | SQL `record_absence()` | The only way to set the `excused` status; a trigger rejects it elsewhere, and PIN files can't set it |
 | Prospect interest | TS `prospectEngagement()` | Thresholds in `app_settings.prospect_engagement` (workbook: 3+ High, 2 Medium) |
 | Most improved | TS `improvement()` | Compares *rates* (attended ÷ counted events available); no baseline means no ranking |
 | Award eligibility | TS `evaluateEligibility()` + `src/lib/data/recognition.ts` | Configurable thresholds; blank means "not configured" |

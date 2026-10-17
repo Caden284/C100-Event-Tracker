@@ -17,6 +17,30 @@ export const strikeThresholdSchema = z.object({
   action: z.enum(["formal_warning", "probation", "removal", "other"]),
 });
 
+const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date");
+const strikePoints = z.number().int().min(1).max(3).default(1);
+
+/** What can earn a strike under the policy. Each produces a SUGGESTION an officer confirms or dismisses. */
+export const strikeTriggersSchema = z.object({
+  /** Missing an event in these categories without an excuse (default: General Body Meetings). */
+  unexcused_absence: z.object({
+    enabled: z.boolean().default(true),
+    categories: z.array(z.string()).default(["meeting"]),
+    points: strikePoints,
+  }).prefault({}),
+  /** Below this share of the requirements by the checkpoint date (default: semester midpoint). */
+  midterm_checkpoint: z.object({
+    enabled: z.boolean().default(true),
+    date: isoDay.nullable().default(null),
+    min_percent: z.number().int().min(1).max(100).default(50),
+    points: strikePoints,
+  }).prefault({}),
+  /** Any requirement still unmet when the semester ends. */
+  end_of_semester: z.object({ enabled: z.boolean().default(true), points: strikePoints }).prefault({}),
+  /** Dues not paid (or waived) by the semester's dues deadline. */
+  dues_deadline: z.object({ enabled: z.boolean().default(true), points: strikePoints }).prefault({}),
+});
+
 export const policyRulesSchema = z.object({
   requirements: z.array(requirementSchema),
   dues_required_for_good_standing: z.boolean().default(true),
@@ -30,8 +54,15 @@ export const policyRulesSchema = z.object({
     .object({
       enabled: z.boolean().default(false),
       thresholds: z.array(strikeThresholdSchema).default([]),
+      triggers: strikeTriggersSchema.prefault({}),
+      /** Excused absences that protect from strikes each semester. null = no limit. */
+      max_excused_per_semester: z.number().int().min(0).max(50).nullable().default(3),
+      /** Strikes count only within the semester they were given. */
+      reset_each_semester: z.boolean().default(true),
+      /** A make-up service event can remove one strike (recorded by an officer as −1). */
+      makeup_clears_strike: z.boolean().default(true),
     })
-    .default({ enabled: false, thresholds: [] }),
+    .prefault({}),
   probation_criteria: z.string().default(""),
   review_process: z.string().default(""),
   appeal_process: z.string().default(""),
@@ -39,6 +70,7 @@ export const policyRulesSchema = z.object({
 
 export type PolicyRules = z.infer<typeof policyRulesSchema>;
 export type Requirement = z.infer<typeof requirementSchema>;
+export type StrikeTriggers = z.infer<typeof strikeTriggersSchema>;
 
 export type PolicyRecord = {
   id: string;
@@ -55,6 +87,13 @@ export function parseRules(raw: unknown): PolicyRules {
   if (res.success) return res.data;
   return policyRulesSchema.parse({ requirements: [] });
 }
+
+export const DRAFT_PROBATION_CRITERIA =
+  "PROPOSAL: A member reaching 2 confirmed strikes in a semester is placed on probation after a meeting with the President or Membership Chair. Probation lasts the rest of the semester; meeting every requirement by the end of the semester ends it.";
+export const DRAFT_REVIEW_PROCESS =
+  "PROPOSAL: The member receives written notice of each strike within 7 days. At 3 strikes the executive board reviews the member's record and votes on removal; removal is never automatic.";
+export const DRAFT_APPEAL_PROCESS =
+  "PROPOSAL: A member may appeal any strike or decision in writing within 7 days of notice. The board decides the appeal at its next meeting, without the officer who issued the strike voting.";
 
 /**
  * The rules found in C100_Membership_Tracker.xlsx (Settings tab, How To Use tab).
@@ -78,14 +117,24 @@ export function workbookDraftRules(settings: { meetings: number; general: number
     strikes: {
       enabled: false,
       thresholds: [
-        { strikes: 1, label: "Warning", action: "formal_warning" },
+        { strikes: 1, label: "Written warning", action: "formal_warning" },
         { strikes: 2, label: "Probation", action: "probation" },
-        { strikes: 3, label: "Removal", action: "removal" },
+        { strikes: 3, label: "Board review (possible removal)", action: "removal" },
       ],
+      // Proposed by the hub for the board to consider (see LIMITATIONS.md).
+      triggers: {
+        unexcused_absence: { enabled: true, categories: ["meeting"], points: 1 },
+        midterm_checkpoint: { enabled: true, date: null, min_percent: 50, points: 1 },
+        end_of_semester: { enabled: true, points: 1 },
+        dues_deadline: { enabled: true, points: 1 },
+      },
+      max_excused_per_semester: 3,
+      reset_each_semester: true,
+      makeup_clears_strike: true,
     },
-    probation_criteria: "",
-    review_process: "",
-    appeal_process: "",
+    probation_criteria: DRAFT_PROBATION_CRITERIA,
+    review_process: DRAFT_REVIEW_PROCESS,
+    appeal_process: DRAFT_APPEAL_PROCESS,
   });
 }
 
@@ -131,5 +180,8 @@ export function validateRules(rules: PolicyRules): string[] {
   }
   const strikes = [...rules.strikes.thresholds].map((t) => t.strikes);
   if (new Set(strikes).size !== strikes.length) errors.push("Two strike thresholds use the same number of strikes.");
+  const t = rules.strikes.triggers.unexcused_absence;
+  if (t.enabled && t.categories.length === 0) errors.push("Choose at least one event category for unexcused-absence strikes, or turn that trigger off.");
+  if (t.categories.includes("recruitment")) errors.push("Recruitment events should not earn members strikes.");
   return errors;
 }

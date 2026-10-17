@@ -73,7 +73,19 @@ function rulesFromForm(fd: FormData) {
     requirements: reqs, dues_required_for_good_standing: bool(fd, "dues_required"), standout_multiplier: mult ? Number(mult) : null,
     excused_counts_as_attended: bool(fd, "excused_counts"), waivers_allowed: bool(fd, "waivers_allowed"),
     credit_pre_membership_attendance: bool(fd, "credit_pre_membership"), tracked_statuses: fd.getAll("tracked_statuses").map(String),
-    at_risk_enabled: bool(fd, "at_risk_enabled"), strikes: { enabled: bool(fd, "strikes_enabled"), thresholds },
+    at_risk_enabled: bool(fd, "at_risk_enabled"),
+    strikes: {
+      enabled: bool(fd, "strikes_enabled"), thresholds,
+      triggers: {
+        unexcused_absence: { enabled: bool(fd, "t_absence"), categories: fd.getAll("t_absence_cats").map(String), points: int(fd, "t_absence_points") ?? 1 },
+        midterm_checkpoint: { enabled: bool(fd, "t_midterm"), date: str(fd, "t_midterm_date"), min_percent: int(fd, "t_midterm_percent") ?? 50, points: int(fd, "t_midterm_points") ?? 1 },
+        end_of_semester: { enabled: bool(fd, "t_final"), points: int(fd, "t_final_points") ?? 1 },
+        dues_deadline: { enabled: bool(fd, "t_dues"), points: int(fd, "t_dues_points") ?? 1 },
+      },
+      max_excused_per_semester: int(fd, "max_excused"),
+      reset_each_semester: bool(fd, "reset_each_semester"),
+      makeup_clears_strike: bool(fd, "makeup_clears_strike"),
+    },
     probation_criteria: str(fd, "probation_criteria") ?? "", review_process: str(fd, "review_process") ?? "", appeal_process: str(fd, "appeal_process") ?? "",
   });
   if (!parsed.success) throw new UserError(parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "));
@@ -149,10 +161,28 @@ export async function saveStatusConfig(_p: ActionState, fd: FormData) {
       if (str(fd, "existing")) check(await s.supabase.from("member_statuses").update(row).eq("key", req(fd, "key")));
       else check(await s.supabase.from("member_statuses").insert({ ...row, key: req(fd, "name").toLowerCase().replace(/[^a-z0-9]+/g, "_"), sort_order: 50 }));
     } else if (table === "attendance_statuses") {
-      check(await s.supabase.from("attendance_statuses").update({ is_active: bool(fd, "is_active"), pin_aliases: (str(fd, "pin_aliases") ?? "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean) }).eq("key", req(fd, "key")));
+      const key = req(fd, "key");
+      // Excused absences need a reason, so they are never taken from a PIN export.
+      const aliases = key === "excused" ? [] : (str(fd, "pin_aliases") ?? "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
+      check(await s.supabase.from("attendance_statuses").update({ is_active: bool(fd, "is_active"), pin_aliases: aliases }).eq("key", key));
     } else throw new UserError("Unknown table.");
     revalidatePath("/settings/categories");
     return "Saved.";
+  });
+}
+
+export async function saveAbsenceReason(_p: ActionState, fd: FormData) {
+  return run(async () => {
+    const s = await assertPermission("settings.manage");
+    const row = { name: req(fd, "name", "Name"), description: str(fd, "description"), requires_note: bool(fd, "requires_note"), is_active: bool(fd, "is_active") };
+    if (str(fd, "existing")) check(await s.supabase.from("absence_reasons").update(row).eq("key", req(fd, "key")));
+    else {
+      const key = row.name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+      if (!/^[a-z]/.test(key)) throw new UserError("Start the name with a letter.");
+      check(await s.supabase.from("absence_reasons").insert({ ...row, key, sort_order: 50 }));
+    }
+    revalidatePath("/settings/categories");
+    return "Absence reason saved. Past excuses keep their reason even if it is turned off.";
   });
 }
 
