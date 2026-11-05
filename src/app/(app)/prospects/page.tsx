@@ -18,9 +18,9 @@ export default async function ProspectsPage({ searchParams }: PageProps<"/prospe
   const params = await searchParams;
   const s = await requirePermission("prospects.read");
   const all = await loadProspects(s);
-  const q = sp(params, "q")?.toLowerCase(), interest = sp(params, "interest"), status = sp(params, "status") ?? "in_recruitment", follow = sp(params, "follow");
+  const q = sp(params, "q")?.toLowerCase(), interest = sp(params, "interest"), status = sp(params, "status") ?? "active", follow = sp(params, "follow");
   const list = all.filter((p) => (!q || `${p.name} ${p.email ?? ""}`.toLowerCase().includes(q)) && (!interest || p.interest === interest)
-    && (status === "all" || p.status === status) && (!follow || p.follow_up_status === follow));
+    && (status === "all" || p.status === status || (status === "active" && ["in_recruitment", "interviewing"].includes(p.status))) && (!follow || p.follow_up_status === follow));
   const page = pageOf(params);
   return (
     <>
@@ -33,7 +33,7 @@ export default async function ProspectsPage({ searchParams }: PageProps<"/prospe
           <label className="sr-only" htmlFor="pi">Interest</label>
           <Select id="pi" name="interest" defaultValue={interest ?? ""} className="h-8 w-36 text-xs"><option value="">Any interest</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></Select>
           <label className="sr-only" htmlFor="ps">Status</label>
-          <Select id="ps" name="status" defaultValue={status} className="h-8 w-40 text-xs"><option value="in_recruitment">In recruitment</option><option value="converted">Converted</option><option value="withdrawn">Withdrawn</option><option value="not_eligible">Not eligible</option><option value="all">All</option></Select>
+          <Select id="ps" name="status" defaultValue={status} className="h-8 w-40 text-xs"><option value="active">In recruitment or interviewing</option><option value="in_recruitment">In recruitment</option><option value="interviewing">Interviewing</option><option value="not_advancing">Not advancing</option><option value="converted">Converted</option><option value="withdrawn">Withdrawn</option><option value="not_eligible">Not eligible</option><option value="all">All</option></Select>
           <label className="sr-only" htmlFor="pf">Follow-up</label>
           <Select id="pf" name="follow" defaultValue={follow ?? ""} className="h-8 w-40 text-xs"><option value="">Any follow-up</option><option value="not_contacted">Not contacted</option><option value="contacted">Contacted</option><option value="interested">Interested</option><option value="follow_up_later">Follow up later</option><option value="not_interested">Not interested</option></Select>
           <button className="h-8 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium">Apply</button>

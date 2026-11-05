@@ -29,7 +29,7 @@ export async function candidatesFor(
       if (f.event_date) x.months.add(f.event_date.slice(0, 7));
       bySem.set(f.person_id, x);
     }
-    return prospects.filter((p) => p.status === "in_recruitment" || bySem.has(p.person_id)).map((p) => {
+    return prospects.filter((p) => p.status === "in_recruitment" || p.status === "interviewing" || bySem.has(p.person_id)).map((p) => {
       const st = bySem.get(p.person_id) ?? { n: 0, months: new Set<string>() };
       const e = evaluateEligibility("prospect", rules, { countedEvents: 0, categoriesAttended: 0, eventsAttended: st.n, distinctMonths: st.months.size });
       return { person_id: p.person_id, name: p.name, email: p.email, href: `/prospects/${p.id}`, ...e, score: st.n, detail: `${st.n} event(s) this semester across ${st.months.size} month(s)` };

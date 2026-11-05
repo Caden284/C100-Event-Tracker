@@ -9,6 +9,7 @@ const ITEMS: { href: string; label: string; icon: string; anyOf: Permission[] | 
   { href: "/events", label: "Events", icon: "events", anyOf: ["events.read"] },
   { href: "/members", label: "Members", icon: "members", anyOf: ["members.read"] },
   { href: "/prospects", label: "Prospective Members", icon: "prospects", anyOf: ["prospects.read"] },
+  { href: "/interviews", label: "Interviews", icon: "interviews", anyOf: ["interviews.conduct", "interviews.manage"] },
   { href: "/recognition", label: "Recognition", icon: "recognition", anyOf: ["recognition.read", "points.read"] },
   { href: "/standing", label: "Probation & Standing", icon: "standing", anyOf: ["standing.read"] },
   { href: "/reports", label: "Reports", icon: "reports", anyOf: ["reports.export"] },

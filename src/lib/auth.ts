@@ -10,6 +10,7 @@ export type Permission =
   | "attendance.read" | "attendance.import" | "attendance.write" | "attendance.excuse" | "unmatched.resolve"
   | "standing.read" | "discipline.read" | "discipline.propose" | "discipline.approve"
   | "policies.read" | "policies.write" | "policies.approve"
+  | "interviews.conduct" | "interviews.manage"
   | "recognition.read" | "recognition.manage" | "recognition.nominate" | "recognition.vote" | "recognition.approve"
   | "points.read" | "points.manage" | "points.award"
   | "reports.export" | "reports.sensitive"

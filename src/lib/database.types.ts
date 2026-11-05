@@ -419,6 +419,114 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"intake_applicants": {
+                  Row: {
+                    "classification": string | null,"created_at": string,"created_by": string | null,"cycle_id": string,"decided_at": string | null,"decided_by": string | null,"decision": string | null,"decision_note": string | null,"engagement_events": number | null,"engagement_points": number | null,"events_reported": number | null,"gpa": number | null,"group_label": string | null,"hours_offered": string | null,"id": string,"interviewer_id": string | null,"major": string | null,"person_id": string,"slot_at": string | null,"slot_note": string | null,"status": string,"tier": string | null,"updated_at": string,"waitlist_rank": number | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "classification"?: string | null,"created_at"?: string,"created_by"?: string | null,"cycle_id": string,"decided_at"?: string | null,"decided_by"?: string | null,"decision"?: string | null,"decision_note"?: string | null,"engagement_events"?: number | null,"engagement_points"?: number | null,"events_reported"?: number | null,"gpa"?: number | null,"group_label"?: string | null,"hours_offered"?: string | null,"id"?: string,"interviewer_id"?: string | null,"major"?: string | null,"person_id": string,"slot_at"?: string | null,"slot_note"?: string | null,"status"?: string,"tier"?: string | null,"updated_at"?: string,"waitlist_rank"?: number | null
+                  }
+                  Update: {
+                    "classification"?: string | null,"created_at"?: string,"created_by"?: string | null,"cycle_id"?: string,"decided_at"?: string | null,"decided_by"?: string | null,"decision"?: string | null,"decision_note"?: string | null,"engagement_events"?: number | null,"engagement_points"?: number | null,"events_reported"?: number | null,"gpa"?: number | null,"group_label"?: string | null,"hours_offered"?: string | null,"id"?: string,"interviewer_id"?: string | null,"major"?: string | null,"person_id"?: string,"slot_at"?: string | null,"slot_note"?: string | null,"status"?: string,"tier"?: string | null,"updated_at"?: string,"waitlist_rank"?: number | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "intake_applicants_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "intake_applicants_cycle_id_fkey"
+      columns: ["cycle_id"]
+isOneToOne: false
+      referencedRelation: "intake_cycles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "intake_applicants_decided_by_fkey"
+      columns: ["decided_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "intake_applicants_interviewer_id_fkey"
+      columns: ["interviewer_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "intake_applicants_person_id_fkey"
+      columns: ["person_id"]
+isOneToOne: false
+      referencedRelation: "people"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "intake_applicants_person_id_fkey"
+      columns: ["person_id"]
+isOneToOne: false
+      referencedRelation: "v_people_directory"
+      referencedColumns: ["person_id"]
+    }
+                  ]
+                },"intake_cycles": {
+                  Row: {
+                    "config": NonNullable<Json>,"created_at": string,"created_by": string | null,"decisions_by": string | null,"deliberation_opened_at": string | null,"deliberation_opened_by": string | null,"dues_amount_cents": number | null,"dues_due": string | null,"engagement_counted_at": string | null,"engagement_cutoff": string | null,"id": string,"name": string,"semester_id": string | null,"spots": number,"status": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "config"?: NonNullable<Json>,"created_at"?: string,"created_by"?: string | null,"decisions_by"?: string | null,"deliberation_opened_at"?: string | null,"deliberation_opened_by"?: string | null,"dues_amount_cents"?: number | null,"dues_due"?: string | null,"engagement_counted_at"?: string | null,"engagement_cutoff"?: string | null,"id"?: string,"name": string,"semester_id"?: string | null,"spots"?: number,"status"?: string,"updated_at"?: string
+                  }
+                  Update: {
+                    "config"?: NonNullable<Json>,"created_at"?: string,"created_by"?: string | null,"decisions_by"?: string | null,"deliberation_opened_at"?: string | null,"deliberation_opened_by"?: string | null,"dues_amount_cents"?: number | null,"dues_due"?: string | null,"engagement_counted_at"?: string | null,"engagement_cutoff"?: string | null,"id"?: string,"name"?: string,"semester_id"?: string | null,"spots"?: number,"status"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "intake_cycles_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "intake_cycles_deliberation_opened_by_fkey"
+      columns: ["deliberation_opened_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "intake_cycles_semester_id_fkey"
+      columns: ["semester_id"]
+isOneToOne: false
+      referencedRelation: "semesters"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"interview_scores": {
+                  Row: {
+                    "answers": NonNullable<Json>,"applicant_id": string,"created_at": string,"id": string,"interviewer_id": string,"notes": string | null,"own_notes": string | null,"own_question": string | null,"recommendation": string | null,"red_flag": boolean,"red_flag_note": string | null,"scores": NonNullable<Json>,"submitted_at": string | null,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "answers"?: NonNullable<Json>,"applicant_id": string,"created_at"?: string,"id"?: string,"interviewer_id"?: string,"notes"?: string | null,"own_notes"?: string | null,"own_question"?: string | null,"recommendation"?: string | null,"red_flag"?: boolean,"red_flag_note"?: string | null,"scores"?: NonNullable<Json>,"submitted_at"?: string | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "answers"?: NonNullable<Json>,"applicant_id"?: string,"created_at"?: string,"id"?: string,"interviewer_id"?: string,"notes"?: string | null,"own_notes"?: string | null,"own_question"?: string | null,"recommendation"?: string | null,"red_flag"?: boolean,"red_flag_note"?: string | null,"scores"?: NonNullable<Json>,"submitted_at"?: string | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "interview_scores_applicant_id_fkey"
+      columns: ["applicant_id"]
+isOneToOne: false
+      referencedRelation: "intake_applicants"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "interview_scores_interviewer_id_fkey"
+      columns: ["interviewer_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"member_dues": {
                   Row: {
                     "amount_cents": number | null,"created_at": string,"id": string,"member_id": string,"note": string | null,"paid_on": string | null,"recorded_by": string | null,"semester_id": string,"status": string,"updated_at": string,"updated_by": string | null
@@ -1585,11 +1693,19 @@ isOneToOne: false
 "convert_prospect_to_member":
 { Args: { "p_member_since": string,"p_prospect": string,"p_reason"?: string,"p_semester": string,"p_status"?: string }; Returns: string
                            },
+"count_intake_engagement":
+{ Args: { "p_cutoff": string,"p_cycle": string }; Returns: number
+                           },
 "delete_attendance_record":
 { Args: { "p_id": string,"p_reason": string }; Returns: undefined
                            },
 "has_permission":
 { Args: { "p_permission": string }; Returns: boolean
+                           },
+"intake_progress":
+{ Args: { "p_cycle": string }; Returns: {
+              "assigned": number,"completed": number,"interviewer_id": string,"interviewer_name": string,"no_show": number,"submitted": number
+            }[]
                            },
 "is_officer":
 { Args: Record<PropertyKey, never>; Returns: boolean
