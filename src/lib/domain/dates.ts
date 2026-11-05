@@ -143,3 +143,37 @@ export function daysBetween(a: string, b: string): number {
   const [y2, m2, d2] = b.split("-").map(Number);
   return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86400000);
 }
+
+const EASTERN = "America/New_York";
+
+/** "Thu, Nov 5, 4:30 PM" in Eastern time, for a timestamp. */
+export function formatDateTimeEastern(iso: string | null | undefined, opts: Intl.DateTimeFormatOptions = { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }): string {
+  if (!iso) return "";
+  return new Date(iso).toLocaleString("en-US", { timeZone: EASTERN, ...opts });
+}
+
+/** Offset of Eastern time from UTC, in minutes, at a given instant (e.g. -300 in winter). */
+function easternOffsetMinutes(at: Date): number {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: EASTERN, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })
+    .formatToParts(at).filter((p) => p.type !== "literal").map((p) => [p.type, Number(p.value)]));
+  const asUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+  return Math.round((asUtc - at.getTime()) / 60000);
+}
+
+/** A datetime-local value ("2026-11-05T16:30") read as Eastern time → ISO timestamp. */
+export function easternLocalToIso(local: string | null | undefined): string | null {
+  const m = local?.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+  if (!m) return null;
+  const naive = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+  let ts = naive - easternOffsetMinutes(new Date(naive)) * 60000;
+  ts = naive - easternOffsetMinutes(new Date(ts)) * 60000; // settle across DST changes
+  return new Date(ts).toISOString();
+}
+
+/** ISO timestamp → datetime-local value in Eastern time, for form defaults. */
+export function isoToEasternLocal(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const shifted = new Date(d.getTime() + easternOffsetMinutes(d) * 60000);
+  return shifted.toISOString().slice(0, 16);
+}

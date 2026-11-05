@@ -56,3 +56,13 @@ describe("dates and times", () => {
     expect(formatTimeRange("17:30", "19:00", null)).toBe("5:30 PM – 7:00 PM");
   });
 });
+
+import { easternLocalToIso, isoToEasternLocal } from "@/lib/domain/dates";
+describe("Eastern time slots", () => {
+  it("converts datetime-local values to and from Eastern, across daylight saving", () => {
+    expect(easternLocalToIso("2026-11-05T16:30")).toBe("2026-11-05T21:30:00.000Z"); // EST
+    expect(easternLocalToIso("2026-10-15T16:30")).toBe("2026-10-15T20:30:00.000Z"); // EDT
+    expect(isoToEasternLocal("2026-11-05T21:30:00.000Z")).toBe("2026-11-05T16:30");
+    expect(easternLocalToIso("bad")).toBeNull();
+  });
+});

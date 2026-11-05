@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, CalendarDays, ClipboardCheck, CalendarRange, Users, UserPlus, Award, Scale, FileSpreadsheet, Settings, History,
+  LayoutDashboard, CalendarDays, ClipboardCheck, CalendarRange, Users, UserPlus, Award, Scale, FileSpreadsheet, Settings, History, MessagesSquare,
 } from "lucide-react";
 import type { NavItem } from "./nav-config";
 import { cn } from "@/lib/cn";
 
 const ICONS = {
   dashboard: LayoutDashboard, calendar: CalendarDays, attendance: ClipboardCheck, events: CalendarRange, members: Users,
-  prospects: UserPlus, recognition: Award, standing: Scale, reports: FileSpreadsheet, settings: Settings, audit: History,
+  prospects: UserPlus, interviews: MessagesSquare, recognition: Award, standing: Scale, reports: FileSpreadsheet, settings: Settings, audit: History,
 } as const;
 
 export function NavLinks({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => void }) {

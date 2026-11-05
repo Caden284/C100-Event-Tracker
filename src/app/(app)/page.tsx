@@ -66,7 +66,7 @@ export default async function Dashboard({ searchParams }: PageProps<"/">) {
   const formalWarnings = formal.filter((a) => a.action_type === "formal_warning").length;
   const formalProbation = formal.filter((a) => a.action_type === "probation").length;
 
-  const inRecruitment = prospects.filter((p) => p.status === "in_recruitment");
+  const inRecruitment = prospects.filter((p) => p.status === "in_recruitment" || p.status === "interviewing");
   const highInterest = inRecruitment.filter((p) => p.interest === "high").length;
 
   // ---- charts

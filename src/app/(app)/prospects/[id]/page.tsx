@@ -85,7 +85,7 @@ export default async function ProspectPage({ params }: PageProps<"/prospects/[id
                   <Select id="io" name="interest_override" defaultValue={p.interest_override ?? ""}><option value="">Use calculated</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></Select>
                 </Field>
                 <Field label="Recruitment status" htmlFor="rs">
-                  <Select id="rs" name="status" defaultValue={p.status} disabled={converted}><option value="in_recruitment">In recruitment</option><option value="withdrawn">Withdrawn</option><option value="not_eligible">Not eligible</option>{converted ? <option value="converted">Converted</option> : null}</Select>
+                  <Select id="rs" name="status" defaultValue={p.status} disabled={converted}><option value="in_recruitment">In recruitment</option><option value="interviewing">Interviewing</option><option value="not_advancing">Not advancing</option><option value="withdrawn">Withdrawn</option><option value="not_eligible">Not eligible</option>{converted ? <option value="converted">Converted</option> : null}</Select>
                 </Field>
                 {converted ? <input type="hidden" name="status" value="converted" /> : null}
                 <Field label="Next steps" htmlFor="ns"><Textarea id="ns" name="next_steps" defaultValue={p.next_steps ?? ""} /></Field>
