@@ -15,7 +15,14 @@ import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { ActionForm, SubmitButton } from "@/components/action-form";
 import { StandingBadge, StatusBadge } from "@/components/standing-badge";
 import { sp } from "@/lib/url";
-import { decideAction, decideSuggestions } from "./actions";
+import { decideAction, decideSuggestions, recordStrikes } from "./actions";
+import { officerRole } from "@/lib/data/interviews";
+import { STRIKE_EMAIL_LEVELS, greetingName, strikeEmail, strikeEmailLevel } from "@/lib/domain/strike-emails";
+import { EmailPreview, EmailToggle } from "@/components/copy-email";
+import { StrikePicker } from "@/components/strike-picker";
+
+/** Member links carry where they came from, so the member page's back link returns here. */
+const memberHref = (id: string, view: string) => `/members/${id}?from=standing&view=${view}`;
 
 export const metadata = { title: "Probation & standing" };
 
@@ -27,15 +34,24 @@ export default async function StandingPage({ searchParams }: PageProps<"/standin
   const { policy, rules, members, result, today } = await loadStrikeSuggestions(s, current);
   const memberById = new Map(members.map((m) => [m.member_id, m]));
   const trig = rules.strikes.triggers;
-  const [strikes, actions] = await Promise.all([
-    s.can("discipline.read") ? s.supabase.from("strike_records").select("member_id, points, voided_at, semester_id") : Promise.resolve({ data: [] }),
+  const [strikes, actions, senderRole] = await Promise.all([
+    s.can("discipline.read") ? s.supabase.from("strike_records").select("member_id, points, voided_at, semester_id, reason, created_at").order("created_at") : Promise.resolve({ data: [] }),
     s.can("discipline.read") ? s.supabase.from("disciplinary_actions").select("*, members(id, people(first_name, last_name, preferred_name)), membership_policies(name, version, status)").order("created_at", { ascending: false }) : Promise.resolve({ data: [] }),
+    s.can("discipline.read") ? officerRole(s) : Promise.resolve(null),
   ]);
-  const strikeBy = new Map<string, { points: number; voided_at: string | null; semester_id: string | null }[]>();
-  for (const r of (strikes.data ?? []) as { member_id: string; points: number; voided_at: string | null; semester_id: string | null }[]) strikeBy.set(r.member_id, [...(strikeBy.get(r.member_id) ?? []), r]);
+  type StrikeRow = { member_id: string; points: number; voided_at: string | null; semester_id: string | null; reason: string; created_at: string };
+  const strikeBy = new Map<string, StrikeRow[]>();
+  for (const r of (strikes.data ?? []) as StrikeRow[]) strikeBy.set(r.member_id, [...(strikeBy.get(r.member_id) ?? []), r]);
+  const sender = { senderName: s.fullName, senderRole, semesterName: current?.name ?? null };
+  /** The notice email for a member's current strike count, listing this semester's active strikes. */
+  const emailFor = (m: { member_id: string; name: string }, count: number) => strikeEmail({
+    ...sender, firstName: greetingName(m.name), strikes: count,
+    reasons: (strikeBy.get(m.member_id) ?? []).filter((r) => !r.voided_at && r.points > 0 && (r.semester_id === current?.id || r.semester_id === null)).map((r) => ({ reason: r.reason, date: r.created_at })),
+  });
   const tracked = members.filter((m) => m.progress.standing !== "not_tracked");
   const attention = tracked.filter((m) => m.progress.needsAttention);
   const withStrikes = members.map((m) => ({ m, e: strikeEligibility(activeStrikeCount(strikeBy.get(m.member_id) ?? [], current?.id), rules, policy?.status ?? null) })).filter((x) => x.e.strikes > 0);
+  const strikeCountOf = new Map(withStrikes.map((x) => [x.m.member_id, x.e.strikes]));
   const acts = (actions.data ?? []) as Array<Record<string, unknown> & { id: string; status: string; action_type: string; reason: string; is_override: boolean; override_reason: string | null; effective_date: string | null; review_date: string | null; resolution: string | null; created_at: string; members: { id: string; people: { first_name: string | null; last_name: string | null } } }>;
   const approvedPolicy = policy?.status === "approved";
   const checklist = [
@@ -64,11 +80,46 @@ export default async function StandingPage({ searchParams }: PageProps<"/standin
       <Tabs current={view} tabs={[
         { key: "attention", label: "Needs attention", href: "/standing?view=attention", count: attention.length },
         ...(s.can("discipline.read") ? [{ key: "suggested", label: "Suggested strikes", href: "/standing?view=suggested", count: result?.suggestions.length ?? 0 }] : []),
-        { key: "strikes", label: "Strikes (eligibility)", href: "/standing?view=strikes", count: withStrikes.length },
+        ...(s.can("discipline.propose") && current ? [{ key: "record", label: "Record strikes", href: "/standing?view=record" }] : []),
+        { key: "strikes", label: "Strikes & emails", href: "/standing?view=strikes", count: withStrikes.length },
+        ...(s.can("discipline.read") ? [{ key: "emails", label: "Email templates", href: "/standing?view=emails" }] : []),
         { key: "actions", label: "Formal actions", href: "/standing?view=actions", count: acts.length },
         { key: "setup", label: "Policy checklist", href: "/standing?view=setup" },
       ]} />
       <div className="mt-4">
+        {view === "record" && s.can("discipline.propose") && current ? (
+          <Card>
+            <CardHeader title="Record strikes" description={`Select one or more members, give the reason once, and the same strike is recorded for each of them in ${current.name}. Each strike can still be voided from the member's page.`} />
+            <CardBody>
+              <ActionForm action={recordStrikes} resetOnSuccess className="space-y-4" confirm={{ title: "Record this for every selected member?", body: approvedPolicy ? "Each strike counts toward the approved thresholds. Formal actions still need approval. Then send each person their notice from the Strikes & emails tab." : "The strike policy is a DRAFT: these strikes are tracked only and trigger no action. Then send each person their notice from the Strikes & emails tab." }}>
+                <input type="hidden" name="semester_id" value={current.id} /><input type="hidden" name="policy_id" value={policy?.id ?? ""} />
+                <StrikePicker members={tracked.map((m) => ({ id: m.member_id, name: m.name, email: m.email, status: m.status_key, strikes: strikeCountOf.get(m.member_id) ?? 0, flagged: m.progress.needsAttention }))} />
+                <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+                  <label className="block text-sm"><span className="mb-1 block text-xs font-medium text-slate-700">Reason (applies to everyone selected)</span>
+                    <Input name="reason" required minLength={5} placeholder="e.g. Unexcused absence from the Nov 4 General Body Meeting" className="h-11" /></label>
+                  <label className="block text-sm"><span className="mb-1 block text-xs font-medium text-slate-700">Strikes</span>
+                    <Select name="points" defaultValue="1" className="h-11"><option value="1">+1 strike</option><option value="2">+2 strikes</option><option value="-1">−1 (remove one)</option></Select></label>
+                  <SubmitButton size="lg">Record for selected</SubmitButton>
+                </div>
+              </ActionForm>
+            </CardBody>
+          </Card>
+        ) : null}
+        {view === "emails" && s.can("discipline.read") ? (
+          <div className="space-y-4">
+            <Callout tone="info">These are the general notices for each strike level. On the <Link className="underline" href="/standing?view=strikes">Strikes &amp; emails</Link> tab, each member&apos;s email is already filled in with their name, strike count and reasons. Replace anything in [brackets] before sending.</Callout>
+            {STRIKE_EMAIL_LEVELS.map((t) => {
+              const mail = strikeEmail({ ...sender, firstName: "[First name]", strikes: t.level, reasons: [] }, t.level);
+              const who = withStrikes.filter((x) => strikeEmailLevel(x.e.strikes) === t.level);
+              return (
+                <Card key={t.level}>
+                  <CardHeader title={t.label} description={`${t.when}${who.length ? ` ${who.length} member${who.length === 1 ? "" : "s"} currently at this level.` : ""}`} />
+                  <CardBody><EmailPreview subject={mail.subject} body={mail.body} /></CardBody>
+                </Card>
+              );
+            })}
+          </div>
+        ) : null}
         {view === "attention" ? (
           <Card>
             <CardHeader title="Members needing attention" description="Behind pace, unable to meet a requirement with the events still scheduled, or missing an email. These are prompts for follow-up, not disciplinary findings." />
@@ -77,7 +128,7 @@ export default async function StandingPage({ searchParams }: PageProps<"/standin
                 <THead><tr><TH>Member</TH><TH>Status</TH><TH>Progress</TH><TH>What needs attention</TH><TH>Calculated</TH></tr></THead>
                 <TBody>{attention.map((m) => (
                   <TR key={m.member_id}>
-                    <TD><Link className="font-medium text-ink hover:text-brand" href={`/members/${m.member_id}`}>{m.name}</Link><span className="block text-xs text-slate-500">{m.email ?? "no email"}</span></TD>
+                    <TD><Link className="font-medium text-ink hover:text-brand" href={memberHref(m.member_id, view)}>{m.name}</Link><span className="block text-xs text-slate-500">{m.email ?? "no email"}</span></TD>
                     <TD><StatusBadge status={m.status_key} /></TD>
                     <TD className="tabular">{m.progress.percentComplete}%</TD>
                     <TD className="text-xs text-slate-600"><ul className="space-y-0.5">{[...m.progress.warnings, ...(m.progress.standing === "no_email" ? ["No email — scans cannot be matched"] : [])].map((w) => <li key={w}>{w}</li>)}</ul></TD>
@@ -118,7 +169,7 @@ export default async function StandingPage({ searchParams }: PageProps<"/standin
                         return (
                           <TR key={key}>
                             <TD>{s.can("discipline.propose") ? <input type="checkbox" name="pick" value={key} aria-label={`Select ${m?.name ?? "member"}: ${x.reason}`} /> : null}</TD>
-                            <TD><Link className="font-medium hover:text-brand" href={`/members/${x.member_id}`}>{m?.name ?? "Member"}</Link></TD>
+                            <TD><Link className="font-medium hover:text-brand" href={memberHref(x.member_id, view)}>{m?.name ?? "Member"}</Link></TD>
                             <TD><Badge tone="draft">{TRIGGER_LABELS[x.kind]}</Badge></TD>
                             <TD className="text-xs">{x.reason}{x.note ? <span className="block text-amber-800">{x.note}</span> : null}</TD>
                             <TD className="tabular text-right">+{x.points}</TD>
@@ -141,15 +192,24 @@ export default async function StandingPage({ searchParams }: PageProps<"/standin
         ) : null}
         {view === "strikes" ? (
           <Card>
-            <CardHeader title="Strike counts" description="Thresholds are shown as eligibility under the policy. Reaching one never changes anyone's status automatically." />
+            <CardHeader title="Strike counts" description="Thresholds are shown as eligibility under the policy. Reaching one never changes anyone's status automatically. Use Email to copy the notice that matches each person's strike count, filled in with their name and reasons." />
             {!s.can("discipline.read") ? <EmptyState title="You do not have access to strike records" /> : withStrikes.length === 0 ? <EmptyState title="No strikes recorded" /> : (
-              <Table>
-                <THead><tr><TH>Member</TH><TH className="text-right">Strikes</TH><TH>Eligibility</TH></tr></THead>
-                <TBody>{withStrikes.map(({ m, e }) => (
-                  <TR key={m.member_id}><TD><Link className="font-medium hover:text-brand" href={`/members/${m.member_id}`}>{m.name}</Link></TD><TD className="tabular text-right">{e.strikes}</TD>
-                    <TD className="text-xs">{e.label ? <Badge tone={approvedPolicy && e.policyEnabled ? "red" : "draft"}>{e.label}{approvedPolicy && e.policyEnabled ? "" : " (draft)"}</Badge> : null} {e.approaching ? <Badge tone="amber">approaching {e.next?.label}</Badge> : null}<span className="mt-1 block text-slate-500">{e.description}</span></TD></TR>
-                ))}</TBody>
-              </Table>
+              <ul className="divide-y divide-slate-100">{withStrikes.map(({ m, e }) => {
+                const mail = emailFor(m, e.strikes);
+                return (
+                  <li key={m.member_id} className="space-y-2 px-4 py-3 sm:px-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <Link className="font-medium hover:text-brand" href={memberHref(m.member_id, view)}>{m.name}</Link>
+                        <span className="block truncate text-xs text-slate-500">{m.email ?? "no email on file"}</span>
+                      </div>
+                      <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-sm font-semibold tabular ${e.strikes >= 3 ? "bg-red-100 text-red-800" : e.strikes === 2 ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800"}`}>{e.strikes} strike{e.strikes === 1 ? "" : "s"}</span>
+                    </div>
+                    <div className="text-xs">{e.label ? <Badge tone={approvedPolicy && e.policyEnabled ? "red" : "draft"}>{e.label}{approvedPolicy && e.policyEnabled ? "" : " (draft)"}</Badge> : null} {e.approaching ? <Badge tone="amber">approaching {e.next?.label}</Badge> : null}<span className="mt-1 block text-slate-500">{e.description}</span></div>
+                    <EmailToggle to={m.email} subject={mail.subject} body={mail.body} label={`Email: strike ${Math.min(e.strikes, 3)} notice`} />
+                  </li>
+                );
+              })}</ul>
             )}
           </Card>
         ) : null}
@@ -165,7 +225,7 @@ export default async function StandingPage({ searchParams }: PageProps<"/standin
                   const ppl = a.members.people;
                   return (
                     <TR key={a.id}>
-                      <TD><Link className="font-medium hover:text-brand" href={`/members/${a.members.id}`}>{`${ppl.first_name ?? ""} ${ppl.last_name ?? ""}`}</Link></TD>
+                      <TD><Link className="font-medium hover:text-brand" href={memberHref(a.members.id, view)}>{`${ppl.first_name ?? ""} ${ppl.last_name ?? ""}`}</Link></TD>
                       <TD>{ACTION_LABELS[a.action_type]}{a.is_override ? <Badge tone="amber" className="ml-1">override</Badge> : null}<span className="block text-xs text-slate-400">{pol ? `${pol.name} v${pol.version} (${pol.status})` : "no policy"}</span></TD>
                       <TD><Badge tone={a.status === "approved" || a.status === "active" ? "red" : a.status === "proposed" ? "amber" : "neutral"}>{a.status}</Badge></TD>
                       <TD className="max-w-xs text-xs">{a.reason}{a.override_reason ? <span className="block text-amber-800">Override: {a.override_reason}</span> : null}{a.resolution ? <span className="block text-slate-500">Resolution: {a.resolution}</span> : null}</TD>
