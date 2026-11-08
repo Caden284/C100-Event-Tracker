@@ -75,3 +75,26 @@ export async function decideSuggestions(_p: ActionState, fd: FormData) {
       : `${chosen.length} suggestion${chosen.length === 1 ? "" : "s"} dismissed. They won't be suggested again.`;
   });
 }
+
+/** Records the same strike for several members at once (manual strikes from Probation & standing). */
+export async function recordStrikes(_p: ActionState, fd: FormData) {
+  return run(async () => {
+    const s = await assertPermission("discipline.propose");
+    const ids = [...new Set(fd.getAll("member_id").map(String).filter(Boolean))];
+    if (!ids.length) throw new UserError("Select at least one member.");
+    if (ids.length > 300) throw new UserError("Select 300 members or fewer at a time.");
+    const reason = req(fd, "reason", "Reason");
+    if (reason.length < 5) throw new UserError("Give a reason of at least 5 characters.");
+    const points = Number(req(fd, "points"));
+    if (![1, 2, -1].includes(points)) throw new UserError("Choose how many strikes to record.");
+    const { data: found } = await s.supabase.from("members").select("id").in("id", ids);
+    if ((found ?? []).length !== ids.length) throw new UserError("Some of the selected members could not be found. Refresh the page and try again.");
+    const semesterId = str(fd, "semester_id"), policyId = str(fd, "policy_id");
+    check(await s.supabase.from("strike_records").insert(ids.map((member_id) => ({ member_id, semester_id: semesterId, policy_id: policyId, points, reason }))));
+    revalidatePath("/standing");
+    for (const id of ids) revalidatePath(`/members/${id}`);
+    const n = ids.length;
+    const what = points < 0 ? "Removed a strike for" : `Recorded ${points === 1 ? "a strike" : `${points} strikes`} for`;
+    return `${what} ${n} member${n === 1 ? "" : "s"}.${points > 0 ? " Copy their notice emails from the Strikes & emails tab." : ""}`;
+  });
+}

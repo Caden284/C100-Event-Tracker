@@ -19,12 +19,21 @@ import { ActionForm, SubmitButton } from "@/components/action-form";
 import { StandingBadge, StatusBadge } from "@/components/standing-badge";
 import { addNote, recordDues, recordStrike, updateMember, voidStrike } from "../actions";
 import { AbsenceForm } from "@/components/absence-form";
+import { sp } from "@/lib/url";
 import { loadAbsenceReasons, loadAbsences } from "@/lib/data/absences";
 
 export const metadata = { title: "Member" };
 
-export default async function MemberPage({ params }: PageProps<"/members/[id]">) {
+const STANDING_VIEWS = new Set(["attention", "suggested", "record", "strikes", "emails", "actions", "setup"]);
+
+export default async function MemberPage({ params, searchParams }: PageProps<"/members/[id]">) {
   const { id } = await params;
+  const query = await searchParams;
+  const fromView = sp(query, "view");
+  // Opened from Probation & standing: the back link returns to the same tab.
+  const back = sp(query, "from") === "standing"
+    ? { href: `/standing?view=${fromView && STANDING_VIEWS.has(fromView) ? fromView : "attention"}`, label: "Probation & standing" }
+    : { href: "/members", label: "Members" };
   const s = await requirePermission("members.read");
   const { data: m } = await s.supabase.from("members").select("*, people(*), member_statuses(name)").eq("id", id).maybeSingle();
   if (!m) notFound();
@@ -73,7 +82,7 @@ export default async function MemberPage({ params }: PageProps<"/members/[id]">)
 
   return (
     <>
-      <PageHeader title={name} back={{ href: "/members", label: "Members" }}
+      <PageHeader title={name} back={back}
         badge={<><StatusBadge status={m.status_key} label={(m.member_statuses as { name: string } | null)?.name} />{m.eboard_role ? <Badge tone="purple">{m.eboard_role}</Badge> : null}</>}
         description={`${email ?? "No email on file"}${m.committee ? ` · Committee: ${m.committee}` : ""}${m.member_since ? ` · Member since ${formatDate(m.member_since)}` : ""}`} />
       {!email ? <Callout tone="warning" className="mb-4" title="No email — data-quality issue">PIN scans are matched by email, so attendance for this member may be missing. Add their GSU email below. This is not evidence that they did not attend.</Callout> : null}
